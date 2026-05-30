@@ -1,0 +1,184 @@
+.hist {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.hist-state {
+  font-size: 13px;
+  color: var(--fw-ink-3);
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* ── Header ── */
+.hist-header { display: flex; flex-direction: column; gap: 6px; }
+.hist-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--fw-rust);
+  font-weight: 500;
+}
+.hist-title {
+  font-family: 'Geist', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 28px;
+  letter-spacing: -.03em;
+  color: var(--fw-ink);
+  margin: 0;
+}
+.hist-sub { font-size: 14px; color: var(--fw-ink-3); margin: 0; line-height: 1.6; }
+
+/* ── Empty ── */
+.hist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 0;
+  gap: 8px;
+}
+.hist-empty-title { font-size: 15px; font-weight: 600; color: var(--fw-ink); margin: 0; }
+.hist-empty-sub   { font-size: 13px; color: var(--fw-ink-3); margin: 0; }
+.hist-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--fw-rule);
+  background: var(--fw-surface);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fw-ink);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.hist-cta:hover { background: var(--fw-peach-soft); border-color: var(--fw-peach); }
+
+/* ── Section ── */
+.hist-section { display: flex; flex-direction: column; gap: 10px; }
+.hist-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--fw-rule);
+}
+.hist-section-title {
+  font-family: 'Geist', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fw-ink);
+  margin: 0;
+}
+.hist-section-count {
+  font-size: 11px;
+  color: var(--fw-ink-3);
+  background: var(--fw-bg-deep);
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Row ── */
+.hist-list { display: flex; flex-direction: column; gap: 2px; }
+
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background .12s, border-color .12s;
+}
+.hist-row:hover {
+  background: var(--fw-surface);
+  border-color: var(--fw-rule);
+}
+
+.hist-row-thumb {
+  flex-shrink: 0;
+  width: 96px;
+  aspect-ratio: 16/9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--fw-bg-deep);
+  position: relative;
+}
+.hist-row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hist-row-thumb-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hist-row-bar-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0,0,0,.3);
+}
+.hist-row-bar {
+  height: 100%;
+  background: var(--fw-rust);
+  transition: width .3s ease;
+}
+
+.hist-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.hist-row-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--fw-ink);
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hist-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hist-row-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+.hist-row-pill.dance { background: rgba(197,106,67,.12); color: var(--fw-rust); }
+.hist-row-pill.study { background: rgba(107,153,125,.12); color: var(--fw-sage); }
+
+.hist-row-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--fw-ink-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+.hist-row-age {
+  font-size: 11.5px;
+  color: var(--fw-ink-4);
+  margin-left: auto;
+}

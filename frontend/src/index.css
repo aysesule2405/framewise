@@ -1,0 +1,59 @@
+@import "./styles/tokens.css";
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Alias old variable names → new token system so existing CSS keeps compiling */
+:root {
+  color-scheme: light dark;
+
+  --color-bg:              var(--fw-bg);
+  --color-bg-soft:         var(--fw-bg-deep);
+  --color-surface:         var(--fw-surface);
+  --color-surface-strong:  var(--fw-surface);
+  --color-surface-hover:   var(--fw-surface-inset);
+  --color-control:         var(--fw-surface-inset);
+  --color-control-strong:  var(--fw-surface-inset);
+  --color-control-muted:   var(--fw-surface-inset);
+  --color-brand:           var(--fw-rust);
+  --color-accent:          var(--fw-peach-deep);
+  --color-orchid:          var(--fw-rust);
+  --color-pink:            var(--fw-peach-deep);
+  --color-text:            var(--fw-ink);
+  --color-text-soft:       var(--fw-ink-2);
+  --color-text-muted:      var(--fw-ink-3);
+  --color-success:         var(--fw-sage);
+  --color-warning:         var(--fw-warn);
+  --color-error:           var(--fw-err);
+  --color-border:          var(--fw-rule);
+  --color-border-strong:   var(--fw-rule);
+  --color-teal:            var(--fw-sage);
+  --color-teal-dark:       var(--fw-sage-ink);
+  --color-teal-light:      var(--fw-sage-soft);
+  --color-slate:           var(--fw-ink);
+  --color-grey:            var(--fw-bg);
+  --brand-gradient:        linear-gradient(135deg, var(--fw-peach-deep), var(--fw-rust));
+  --soft-shadow:           var(--fw-shadow-2);
+  --panel-blur:            blur(16px);
+  --radius-lg:             var(--fw-r-lg);
+  --radius-md:             var(--fw-r-md);
+  --radius-sm:             var(--fw-r-sm);
+  --font-sans:             'Geist', 'Inter Tight', -apple-system, system-ui, sans-serif;
+  --font-display:          'Geist', -apple-system, system-ui, sans-serif;
+  --font-mono:             'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+html { background: var(--fw-bg); }
+
+body {
+  font-family: var(--fw-font-sans, 'Geist', system-ui, sans-serif);
+  background: var(--fw-bg);
+  color: var(--fw-ink);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+::selection { background: var(--fw-peach-soft); color: var(--fw-ink); }

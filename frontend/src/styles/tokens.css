@@ -1,0 +1,404 @@
+/* Framewise — design tokens
+   Warm, editorial film-club system. Two modes share the same scale.
+   ---------------------------------------------------------------- */
+
+:root,
+.fw-light {
+  /* Surface stack — creamy paper, gentle warmth */
+  --fw-bg: #FBF1D6;
+  --fw-bg-deep: #F4E5BE;
+  --fw-surface: #FFF9E5;
+  --fw-surface-inset: #F5E8C8;
+  --fw-rule: #E8D2A8;
+  --fw-rule-soft: #EFDEBA;
+
+  /* Ink — deep cocoa from palette */
+  --fw-ink: #2A1810;
+  --fw-ink-2: #653728;
+  --fw-ink-3: #8B6147;
+  --fw-ink-4: #B89679;
+
+  /* Accents — peach-forward */
+  --fw-sage: #72875B;
+  --fw-sage-ink: #4F6240;
+  --fw-sage-soft: #DCE3CC;
+  --fw-sage-2: #97AC6D;
+  --fw-sage-2-soft: #E6EBD2;
+  --fw-rust: #C56A43;
+  --fw-rust-ink: #8B4625;
+  --fw-rust-soft: #F4D5C2;
+  --fw-peach: #FEC9AF;
+  --fw-peach-soft: #FEE0CC;
+  --fw-peach-deep: #F8A57F;
+
+  /* Status */
+  --fw-ok: #72875B;
+  --fw-warn: #C69A2C;
+  --fw-err: #C56A43;
+
+  /* Elevation */
+  --fw-shadow-1: 0 1px 0 rgba(42, 24, 16, .04), 0 1px 2px rgba(42, 24, 16, .05);
+  --fw-shadow-2: 0 2px 0 rgba(42, 24, 16, .03), 0 6px 16px rgba(42, 24, 16, .07);
+  --fw-shadow-inset: inset 0 1px 0 rgba(255, 247, 232, .8), inset 0 0 0 1px rgba(42, 24, 16, .05);
+
+  /* Peach ambient — gentle warmth, doesn't overpower the cream */
+  --fw-peach-glow: radial-gradient(ellipse at 80% 0%, rgba(254,201,175,.32), transparent 60%),
+                   radial-gradient(ellipse at 0% 100%, rgba(254,224,200,.28), transparent 55%);
+
+  --fw-select-bg: #FEE0CC;
+  --fw-select-ink: #2A1810;
+}
+
+.fw-dark {
+  /* Surface — deeper warm cocoa with stronger layer separation */
+  --fw-bg: #100805;
+  --fw-bg-deep: #050302;
+  --fw-surface: #221610;
+  --fw-surface-inset: #1A0F09;
+  --fw-rule: #4A2E1D;
+  --fw-rule-soft: #362114;
+
+  /* Ink — brighter, more readable */
+  --fw-ink: #FFF2DC;
+  --fw-ink-2: #EACEAA;
+  --fw-ink-3: #B08868;
+  --fw-ink-4: #7A5C46;
+
+  /* Accents — push saturation and brightness on dark */
+  --fw-sage: #B5CC92;
+  --fw-sage-ink: #DAE8C4;
+  --fw-sage-soft: #2F3D24;
+  --fw-sage-2: #D4E5A8;
+  --fw-sage-2-soft: #38462A;
+  --fw-rust: #EE9268;
+  --fw-rust-ink: #F9C4AA;
+  --fw-rust-soft: #4A2A1A;
+  --fw-peach: #FED2BA;
+  --fw-peach-soft: #4D2D1C;
+  --fw-peach-deep: #FBA985;
+
+  --fw-ok: #B5CC92;
+  --fw-warn: #F5C36C;
+  --fw-err: #EE9268;
+
+  --fw-shadow-1: 0 1px 0 rgba(0, 0, 0, .4), 0 2px 4px rgba(0, 0, 0, .5);
+  --fw-shadow-2: 0 2px 0 rgba(0, 0, 0, .35), 0 10px 24px rgba(0, 0, 0, .6);
+  --fw-shadow-inset: inset 0 1px 0 rgba(255, 242, 220, .05), inset 0 0 0 1px rgba(0, 0, 0, .4);
+
+  --fw-peach-glow: radial-gradient(ellipse at 80% 0%, rgba(254,201,175,.10), transparent 55%),
+                   radial-gradient(ellipse at 0% 100%, rgba(238,146,104,.08), transparent 50%);
+
+  --fw-select-bg: #4A2A1A;
+  --fw-select-ink: #FFF2DC;
+}
+
+/* Typography stack */
+.fw {
+  --fw-font-display: 'Geist', 'Inter Tight', -apple-system, system-ui, sans-serif;
+  --fw-font-sans:    'Geist', 'Inter Tight', -apple-system, system-ui, sans-serif;
+  --fw-font-serif:   'Fraunces', 'Source Serif Pro', Georgia, serif;
+  --fw-font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Radii — modern tooling, slightly sharper */
+  --fw-r-xs: 4px;
+  --fw-r-sm: 6px;
+  --fw-r-md: 10px;
+  --fw-r-lg: 14px;
+  --fw-r-pill: 999px;
+
+  /* Spacing scale */
+  --fw-s-1: 4px;
+  --fw-s-2: 8px;
+  --fw-s-3: 12px;
+  --fw-s-4: 16px;
+  --fw-s-5: 24px;
+  --fw-s-6: 32px;
+  --fw-s-7: 48px;
+  --fw-s-8: 64px;
+
+  font-family: var(--fw-font-sans);
+  color: var(--fw-ink);
+  background: var(--fw-bg);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Base reset inside fw scope */
+.fw, .fw * { box-sizing: border-box; }
+.fw h1, .fw h2, .fw h3, .fw h4 { margin: 0; font-family: var(--fw-font-display); font-weight: 500; letter-spacing: -.022em; line-height: 1.05; color: var(--fw-ink); }
+.fw p { margin: 0; line-height: 1.5; color: var(--fw-ink-2); }
+.fw a { color: inherit; text-decoration: none; }
+.fw button { font: inherit; }
+
+/* Display sizes — modern sans, tight tracking */
+.fw-d1 { font-family: var(--fw-font-display); font-weight: 500; font-size: 64px; letter-spacing: -.035em; line-height: 1.0; }
+.fw-d2 { font-family: var(--fw-font-display); font-weight: 500; font-size: 46px; letter-spacing: -.032em; line-height: 1.02; }
+.fw-d3 { font-family: var(--fw-font-display); font-weight: 500; font-size: 30px; letter-spacing: -.028em; line-height: 1.08; }
+.fw-d4 { font-family: var(--fw-font-display); font-weight: 500; font-size: 22px; letter-spacing: -.02em; line-height: 1.15; }
+.fw-d5 { font-family: var(--fw-font-display); font-weight: 500; font-size: 17px; letter-spacing: -.015em; line-height: 1.25; }
+
+/* Italic flourish — serif only, used sparingly */
+.fw-italic { font-family: var(--fw-font-serif); font-style: italic; font-weight: 400; font-variation-settings: "SOFT" 100, "WONK" 1; letter-spacing: -.015em; }
+
+/* Body sizes */
+.fw-body { font-size: 14px; line-height: 1.55; color: var(--fw-ink-2); }
+.fw-body-lg { font-size: 16px; line-height: 1.55; color: var(--fw-ink-2); }
+.fw-small { font-size: 12px; line-height: 1.5; color: var(--fw-ink-3); }
+
+/* Eyebrow / section label */
+.fw-eyebrow {
+  font-family: var(--fw-font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--fw-rust);
+  font-weight: 500;
+}
+.fw-dark .fw-eyebrow { color: var(--fw-rust); }
+
+/* Mono utility */
+.fw-mono { font-family: var(--fw-font-mono); font-feature-settings: "ss01", "zero"; font-variant-numeric: tabular-nums; }
+.fw-tnum { font-variant-numeric: tabular-nums; }
+.fw-tc { font-family: var(--fw-font-mono); font-size: 11px; letter-spacing: .04em; color: var(--fw-ink-3); font-variant-numeric: tabular-nums; }
+
+/* Grain overlay — adds tactile paper feel without being noisy */
+.fw-grain { position: relative; }
+.fw-grain::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.10 0 0 0 0 0.06 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.35'/></svg>");
+  background-size: 160px 160px;
+}
+.fw-dark .fw-grain::after { mix-blend-mode: screen; opacity: .12; }
+
+/* Cards / panels */
+.fw-card {
+  background: var(--fw-surface);
+  border: 1px solid var(--fw-rule);
+  border-radius: var(--fw-r-md);
+  box-shadow: var(--fw-shadow-1);
+}
+.fw-panel {
+  background: var(--fw-surface);
+  border: 1px solid var(--fw-rule);
+  border-radius: var(--fw-r-lg);
+}
+.fw-inset {
+  background: var(--fw-surface-inset);
+  border: 1px solid var(--fw-rule);
+  border-radius: var(--fw-r-md);
+  box-shadow: var(--fw-shadow-inset);
+}
+.fw-hr { height: 1px; background: var(--fw-rule); border: 0; margin: 0; }
+.fw-vr { width: 1px; background: var(--fw-rule); align-self: stretch; }
+
+/* Buttons */
+.fw-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 13px; border-radius: var(--fw-r-sm);
+  font: 500 13px/1 var(--fw-font-sans); letter-spacing: -.005em;
+  border: 1px solid var(--fw-rule); background: var(--fw-surface);
+  color: var(--fw-ink); cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s, box-shadow .12s;
+}
+.fw-btn:hover { background: var(--fw-bg-deep); border-color: var(--fw-ink-3); }
+.fw-btn:active { transform: translateY(1px); }
+.fw-btn-primary {
+  background: var(--fw-ink); color: var(--fw-bg);
+  border-color: var(--fw-ink);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 1px 2px rgba(42,24,16,.18);
+}
+.fw-btn-primary:hover { background: var(--fw-ink-2); border-color: var(--fw-ink-2); }
+.fw-btn-accent {
+  background: var(--fw-sage); color: #fff;
+  border-color: var(--fw-sage-ink);
+}
+.fw-dark .fw-btn-accent { color: var(--fw-bg); }
+.fw-btn-ghost { background: transparent; border-color: transparent; color: var(--fw-ink-2); }
+.fw-btn-ghost:hover { background: var(--fw-bg-deep); color: var(--fw-ink); border-color: transparent; }
+.fw-btn-sm { padding: 6px 10px; font-size: 12px; }
+.fw-btn-icon { padding: 8px; }
+
+/* Input */
+.fw-input {
+  width: 100%;
+  background: var(--fw-surface-inset);
+  border: 1px solid var(--fw-rule);
+  border-radius: var(--fw-r-sm);
+  padding: 10px 14px;
+  font: 400 14px/1 var(--fw-font-sans);
+  color: var(--fw-ink);
+  box-shadow: var(--fw-shadow-inset);
+}
+.fw-input::placeholder { color: var(--fw-ink-4); }
+.fw-input:focus { outline: none; border-color: var(--fw-sage); background: var(--fw-surface); }
+
+/* Pill / Tag / Chip */
+.fw-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: var(--fw-r-pill);
+  font: 500 11px/1.4 var(--fw-font-sans); letter-spacing: .01em;
+  background: var(--fw-bg-deep); color: var(--fw-ink-2); border: 1px solid var(--fw-rule);
+}
+.fw-tag-sage { background: var(--fw-sage-soft); color: var(--fw-sage-ink); border-color: transparent; }
+.fw-tag-sage-2 { background: var(--fw-sage-2-soft); color: var(--fw-sage-ink); border-color: transparent; }
+.fw-tag-rust { background: var(--fw-rust-soft); color: var(--fw-rust-ink); border-color: transparent; }
+.fw-tag-peach { background: var(--fw-peach-soft); color: var(--fw-rust-ink); border-color: transparent; }
+.fw-dark .fw-tag-sage { color: var(--fw-sage-ink); }
+.fw-dark .fw-tag-rust { color: var(--fw-rust-ink); }
+.fw-dark .fw-tag-peach { color: var(--fw-peach); }
+
+/* Sprocket — filmstrip motif */
+.fw-sprocket {
+  display: flex; gap: 6px; align-items: center;
+}
+.fw-sprocket span {
+  width: 6px; height: 8px; border-radius: 1.5px;
+  background: var(--fw-ink-3); opacity: .55;
+}
+
+/* Chapter dot — numbered chapter marker ① ② … */
+.fw-chap {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--fw-ink-3); color: var(--fw-ink-2);
+  font: 600 11px/1 var(--fw-font-mono); font-variant-numeric: tabular-nums;
+}
+.fw-chap-active { background: var(--fw-rust); color: #fff; border-color: var(--fw-rust); }
+.fw-dark .fw-chap-active { color: var(--fw-bg); }
+
+/* Nav item */
+.fw-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: var(--fw-r-sm);
+  font: 500 13px/1 var(--fw-font-sans); color: var(--fw-ink-2); cursor: pointer;
+  border: 1px solid transparent;
+}
+.fw-nav-item:hover { background: var(--fw-peach-soft); color: var(--fw-ink); }
+.fw-nav-item.active {
+  background: var(--fw-peach-soft); color: var(--fw-ink);
+  border-color: transparent;
+  box-shadow: inset 2px 0 0 var(--fw-rust);
+  padding-left: 12px;
+}
+.fw-nav-section {
+  font: 500 10px/1 var(--fw-font-mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--fw-ink-3); padding: 6px 10px;
+}
+
+/* Letterbox — black bars around 16:9 thumb */
+.fw-letterbox {
+  background: #0E0805; border-radius: var(--fw-r-md); overflow: hidden;
+  position: relative; aspect-ratio: 16/9;
+}
+.fw-letterbox::before, .fw-letterbox::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 8%;
+  background: #0E0805; z-index: 1;
+}
+.fw-letterbox::before { top: 0; }
+.fw-letterbox::after { bottom: 0; }
+
+/* Filmstrip border — top/bottom sprocket strip */
+.fw-filmstrip {
+  position: relative;
+  background:
+    radial-gradient(circle 3px at 8px 50%, var(--fw-bg) 0, var(--fw-bg) 99%, transparent 100%) repeat-x top/16px 12px,
+    radial-gradient(circle 3px at 8px 50%, var(--fw-bg) 0, var(--fw-bg) 99%, transparent 100%) repeat-x bottom/16px 12px,
+    #0E0805;
+  padding: 14px 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Direction A · "Reading Room" — Are.na/Cosmos quiet
+   Hairlines instead of cards. Tighter type. Marginalia as flourish.
+   ───────────────────────────────────────────────────────────────── */
+.fw-a .fw-panel,
+.fw-a .fw-card {
+  background: transparent;
+  border: 1px solid var(--fw-rule);
+  box-shadow: none;
+  border-radius: 4px;
+}
+.fw-a .fw-inset {
+  background: var(--fw-bg-deep);
+  border: 1px solid var(--fw-rule);
+  border-radius: 4px;
+  box-shadow: none;
+}
+.fw-a .fw-btn { border-radius: 4px; }
+.fw-a .fw-btn-primary { background: var(--fw-sage); color: var(--fw-bg); border-color: var(--fw-sage); }
+.fw-a .fw-btn-primary:hover { background: var(--fw-sage-ink); border-color: var(--fw-sage-ink); }
+.fw-a .fw-input { border-radius: 4px; }
+.fw-a .fw-tag { border-radius: 3px; }
+.fw-a .fw-eyebrow { color: var(--fw-sage); }
+.fw-a .fw-chap { border-radius: 2px; width: 18px; height: 18px; font-size: 10px; }
+.fw-a .fw-chap-active { background: var(--fw-sage); border-color: var(--fw-sage); color: var(--fw-bg); }
+.fw-a .fw-nav-item { border-radius: 3px; padding: 5px 8px; font-size: 12.5px; }
+.fw-a .fw-nav-item.active { background: transparent; border-left: 2px solid var(--fw-sage); border-color: transparent; padding-left: 10px; box-shadow: none; color: var(--fw-ink); }
+.fw-a h1.fw-d1, .fw-a h2.fw-d2 { font-weight: 400; letter-spacing: -.018em; }
+
+/* Marginalia — small mono annotations with brackets/arrows */
+.fw-marg {
+  font-family: var(--fw-font-mono); font-size: 11px; color: var(--fw-ink-3);
+  letter-spacing: .01em;
+}
+.fw-marg::before { content: "[ "; opacity: .55; }
+.fw-marg::after  { content: " ]"; opacity: .55; }
+.fw-arrow::before { content: "→ "; color: var(--fw-rust); margin-right: 2px; }
+.fw-aster::before { content: "* "; color: var(--fw-rust); font-weight: 600; }
+
+/* ─────────────────────────────────────────────────────────────────
+   Direction B · "Screening Room" — cinematic warm
+   Inset panels with paper-on-paper shadow, bigger display type
+   ───────────────────────────────────────────────────────────────── */
+.fw-b .fw-panel { box-shadow: var(--fw-shadow-2); }
+.fw-b .fw-card  { box-shadow: var(--fw-shadow-1); }
+.fw-b .fw-btn-primary { background: var(--fw-rust); border-color: var(--fw-rust); color: #fff; }
+.fw-b .fw-btn-primary:hover { background: var(--fw-rust-ink); border-color: var(--fw-rust-ink); }
+.fw-b .fw-eyebrow { color: var(--fw-rust); }
+.fw-b h1.fw-d1, .fw-b h2.fw-d2 { font-weight: 350; }
+.fw-b .fw-chap-active { background: var(--fw-rust); border-color: var(--fw-rust); color: #fff; }
+
+/* Generic icon stroke */
+.fw-icon { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.fw-icon-lg { width: 20px; height: 20px; }
+
+/* Topbar */
+.fw-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--fw-bg);
+  border-bottom: 1px solid var(--fw-rule);
+}
+
+/* Sidebar */
+.fw-sidebar {
+  width: 240px; flex: 0 0 240px;
+  background: var(--fw-bg);
+  border-right: 1px solid var(--fw-rule);
+  padding: 18px 12px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* Brand mark */
+.fw-mark {
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.fw-mark-glyph {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: linear-gradient(135deg, var(--fw-peach), var(--fw-rust));
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 700 13px/1 var(--fw-font-display); letter-spacing: -.03em;
+  position: relative;
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 1px 2px rgba(42,24,16,.18);
+}
+.fw-mark-glyph::before, .fw-mark-glyph::after { display: none; }
+.fw-mark-name {
+  font: 600 16px/1 var(--fw-font-display); letter-spacing: -.022em; color: var(--fw-ink);
+}
+.fw-mark-name em {
+  font-family: var(--fw-font-serif);
+  font-style: italic; font-weight: 400;
+  font-variation-settings: "SOFT" 100, "WONK" 1;
+  letter-spacing: -.015em;
+  margin-left: 1px;
+}

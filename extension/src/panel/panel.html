@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Framewise</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design tokens — dark (default) ── */
+    :root {
+      --fw-bg:            #100805;
+      --fw-bg-deep:       #050302;
+      --fw-surface:       #1C1009;
+      --fw-surface-2:     #221610;
+      --fw-surface-inset: #160C06;
+      --fw-rule:          #3A2216;
+      --fw-rule-soft:     #2A1A10;
+      --fw-ink:           #FFF2DC;
+      --fw-ink-2:         #EACEAA;
+      --fw-ink-3:         #B08868;
+      --fw-ink-4:         #7A5C46;
+      --fw-rust:          #EE9268;
+      --fw-rust-ink:      #F9C4AA;
+      --fw-rust-soft:     #3A1E0E;
+      --fw-sage:          #B5CC92;
+      --fw-sage-soft:     #253018;
+      --fw-peach:         #FED2BA;
+      --fw-peach-soft:    #3D200E;
+      --fw-err:           #EE9268;
+      --fw-ok:            #B5CC92;
+      --fw-shadow:        0 1px 0 rgba(0,0,0,.5), 0 4px 16px rgba(0,0,0,.4);
+    }
+
+    [data-theme="light"] {
+      --fw-bg:            #FBF1D6;
+      --fw-bg-deep:       #F4E5BE;
+      --fw-surface:       #FFF9E5;
+      --fw-surface-2:     #FFF3D0;
+      --fw-surface-inset: #F5E8C8;
+      --fw-rule:          #E8D2A8;
+      --fw-rule-soft:     #F0DDB8;
+      --fw-ink:           #2A1810;
+      --fw-ink-2:         #653728;
+      --fw-ink-3:         #8B6147;
+      --fw-ink-4:         #B89679;
+      --fw-rust:          #C56A43;
+      --fw-rust-ink:      #8B4625;
+      --fw-rust-soft:     #F4D5C2;
+      --fw-sage:          #72875B;
+      --fw-sage-soft:     #DCE3CC;
+      --fw-peach:         #FEC9AF;
+      --fw-peach-soft:    #FEE0CC;
+      --fw-err:           #C56A43;
+      --fw-ok:            #72875B;
+      --fw-shadow:        0 1px 0 rgba(42,24,16,.06), 0 4px 16px rgba(42,24,16,.08);
+    }
+
+    /* ── Base ── */
+    html, body {
+      height: 100%;
+      font-family: 'Geist', -apple-system, system-ui, sans-serif;
+      font-size: 13px;
+      background: var(--fw-bg);
+      color: var(--fw-ink);
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Filmstrip ── */
+    .fw-filmstrip {
+      background: #0A0502;
+      padding: 4px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .fw-film-notches { display: flex; gap: 3px; align-items: center; }
+    .fw-film-notch {
+      width: 4px; height: 5px;
+      background: #2A1A10;
+      border-radius: 1px;
+    }
+    .fw-film-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      letter-spacing: .14em;
+      color: #7A4C34;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ── Header ── */
+    .fw-header {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--fw-rule);
+      flex-shrink: 0;
+      background: var(--fw-bg);
+    }
+    .fw-header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .fw-wordmark {
+      font-weight: 600;
+      font-size: 13.5px;
+      letter-spacing: -.025em;
+      color: var(--fw-ink);
+      white-space: nowrap;
+    }
+    .fw-wordmark .dot { color: var(--fw-rust); }
+    .fw-header-center {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .fw-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: .07em;
+      color: var(--fw-ink-4);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+    .fw-header-actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+    .fw-icon-btn {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      cursor: pointer;
+      color: var(--fw-ink-3);
+      transition: background .12s, color .12s, border-color .12s;
+      flex-shrink: 0;
+    }
+    .fw-icon-btn:hover { background: var(--fw-surface-2); color: var(--fw-ink); border-color: var(--fw-rule); }
+    .fw-icon-btn.active { color: var(--fw-rust); background: var(--fw-rust-soft); border-color: transparent; }
+    .fw-icon-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Main scroll area ── */
+    #main {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      scrollbar-width: thin;
+      scrollbar-color: var(--fw-rule) transparent;
+    }
+    #main::-webkit-scrollbar { width: 4px; }
+    #main::-webkit-scrollbar-thumb { background: var(--fw-rule); border-radius: 2px; }
+
+    /* ── Not signed in ── */
+    #not-logged-in {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 48px 20px 32px;
+      gap: 14px;
+    }
+    .fw-lock-icon {
+      width: 48px; height: 48px;
+      border-radius: 14px;
+      background: var(--fw-rust-soft);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--fw-rust);
+    }
+    .fw-lock-icon svg { width: 22px; height: 22px; }
+    .fw-screen-title { font-size: 15px; font-weight: 600; color: var(--fw-ink); }
+    .fw-screen-sub {
+      font-size: 12px; color: var(--fw-ink-3);
+      line-height: 1.65; max-width: 240px;
+    }
+
+    /* ── App screen ── */
+    #app-screen {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    /* ── Video context strip ── */
+    .fw-video-strip {
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--fw-rule-soft);
+    }
+    .fw-video-title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    #video-info {
+      flex: 1;
+      min-width: 0;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--fw-ink-2);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .fw-video-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+    }
+    .fw-duration {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .05em;
+      color: var(--fw-ink-4);
+    }
+
+    /* ── Mode badge ── */
+    .video-mode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5px;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .mode-dance {
+      background: rgba(238,146,104,.12);
+      color: var(--fw-rust);
+      border: 1px solid rgba(238,146,104,.25);
+    }
+    .mode-study {
+      background: rgba(181,204,146,.1);
+      color: var(--fw-sage);
+      border: 1px solid rgba(181,204,146,.22);
+    }
+    .mode-general, .mode-undefined { display: none !important; }
+
+    /* ── Progress bar ── */
+    .fw-progress {
+      display: flex;
+      gap: 2px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--fw-rule-soft);
+    }
+    .fw-progress-seg {
+      flex: 1; height: 3px;
+      border-radius: 2px;
+      background: var(--fw-rule);
+      transition: background .2s;
+    }
+    .fw-progress-seg.active { background: var(--fw-sage); }
+
+    /* ── Analyze button ── */
+    #analyze-btn {
+      margin: 12px 16px;
+      padding: 11px 16px;
+      border: none;
+      border-radius: 10px;
+      background: var(--fw-rust);
+      color: #fff;
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity .12s, transform .1s;
+      letter-spacing: -.01em;
+    }
+    #analyze-btn:hover { opacity: .88; transform: translateY(-1px); }
+    #analyze-btn:active { transform: translateY(0); }
+    #analyze-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+    #analyze-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Quick actions ── */
+    #quick-actions {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--fw-rule-soft);
+      flex-wrap: wrap;
+    }
+    .fw-qa-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background: var(--fw-surface);
+      color: var(--fw-ink-3);
+      border: 1px solid var(--fw-rule);
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-family: 'Geist', system-ui, sans-serif;
+      cursor: pointer;
+      transition: background .1s, color .1s, border-color .1s;
+      white-space: nowrap;
+    }
+    .fw-qa-btn:hover { background: var(--fw-surface-2); color: var(--fw-ink); border-color: var(--fw-ink-4); }
+    .fw-qa-btn svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    #quick-note-wrap {
+      display: flex;
+      flex: 1;
+      min-width: 140px;
+      gap: 5px;
+      align-items: center;
+    }
+    #quick-note-input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--fw-rule);
+      border-radius: 6px;
+      background: var(--fw-surface-inset);
+      color: var(--fw-ink);
+      font-size: 11.5px;
+      padding: 5px 8px;
+      font-family: 'Geist', system-ui, sans-serif;
+      outline: none;
+    }
+    #quick-note-input::placeholder { color: var(--fw-ink-4); }
+    #quick-note-input:focus { border-color: var(--fw-rust); }
+
+    /* ── Accordion sections ── */
+    .fw-sections {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .fw-section {
+      border-bottom: 1px solid var(--fw-rule-soft);
+    }
+
+    .fw-section-hdr {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 16px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--fw-ink-3);
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      transition: background .1s, color .1s;
+      letter-spacing: -.01em;
+    }
+    .fw-section-hdr:hover { background: var(--fw-surface); color: var(--fw-ink-2); }
+    .fw-section-hdr.open { color: var(--fw-ink); background: var(--fw-surface); }
+    .fw-section-hdr-icon {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 7px;
+      background: var(--fw-surface-inset);
+      color: var(--fw-ink-3);
+      flex-shrink: 0;
+      transition: background .1s, color .1s;
+    }
+    .fw-section-hdr.open .fw-section-hdr-icon {
+      background: var(--fw-rust-soft);
+      color: var(--fw-rust);
+    }
+    .fw-section-hdr-icon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .fw-section-hdr-label { flex: 1; }
+    .fw-section-hdr-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: .05em;
+      color: var(--fw-ink-4);
+      background: var(--fw-surface-inset);
+      padding: 2px 6px;
+      border-radius: 20px;
+    }
+    .fw-section-hdr.open .fw-section-hdr-badge {
+      background: var(--fw-rust-soft);
+      color: var(--fw-rust);
+    }
+    .fw-section-chevron {
+      width: 16px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: transform .18s ease;
+    }
+    .fw-section-hdr.open .fw-section-chevron { transform: rotate(90deg); }
+    .fw-section-chevron svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .fw-section-body {
+      display: none;
+      flex-direction: column;
+      padding: 4px 0 12px;
+      background: var(--fw-bg);
+      border-top: 1px solid var(--fw-rule-soft);
+      gap: 0;
+    }
+    .fw-section-body.open {
+      display: flex;
+    }
+
+    /* ── Section inner padding ── */
+    .fw-section-inner {
+      padding: 10px 16px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Timeline search ── */
+    .fw-search-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px 6px;
+    }
+    .fw-search-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      background: var(--fw-surface-inset);
+      border: 1px solid var(--fw-rule);
+      border-radius: 8px;
+      transition: border-color .1s;
+    }
+    .fw-search-wrap:focus-within { border-color: var(--fw-rust); }
+    .fw-search-wrap svg { width: 11px; height: 11px; flex-shrink: 0; stroke: var(--fw-ink-3); fill: none; stroke-width: 1.5; }
+    #segment-search {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 12px;
+      color: var(--fw-ink);
+    }
+    #segment-search::placeholder { color: var(--fw-ink-4); }
+
+    /* ── Segment list ── */
+    #segments, #dance-segments {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 0 10px;
+    }
+    .segment {
+      padding: 10px 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 26px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      transition: background .1s, border-color .1s;
+    }
+    .segment:hover { background: var(--fw-surface); border-color: var(--fw-rule); }
+    .segment.active { background: var(--fw-surface); border-color: var(--fw-rust); }
+    .seg-num {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      background: var(--fw-surface-inset);
+      color: var(--fw-ink-4);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background .1s, color .1s;
+    }
+    .segment.active .seg-num { background: var(--fw-rust); color: #fff; }
+    .seg-body { min-width: 0; }
+    .seg-title {
+      font-size: 12.5px;
+      font-weight: 400;
+      color: var(--fw-ink);
+      line-height: 1.35;
+    }
+    .segment.active .seg-title { font-weight: 500; }
+    .seg-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--fw-ink-4);
+      margin-top: 2px;
+    }
+    .seg-summary {
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--fw-ink-3);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .segment.active .seg-meta { color: var(--fw-rust); }
+    .seg-icon { color: var(--fw-ink-4); flex-shrink: 0; display: flex; align-items: center; gap: 3px; }
+    .seg-icon svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+    .segment.active .seg-icon { color: var(--fw-rust); }
+
+    /* ── Empty state ── */
+    .fw-empty {
+      padding: 24px 16px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--fw-ink-4);
+      line-height: 1.65;
+    }
+
+    /* ── Tool buttons ── */
+    .tool-btn {
+      padding: 6px 10px;
+      background: var(--fw-surface);
+      color: var(--fw-ink-3);
+      border: 1px solid var(--fw-rule);
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-family: 'Geist', system-ui, sans-serif;
+      cursor: pointer;
+      transition: background .1s, color .1s, border-color .1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .tool-btn:hover { background: var(--fw-surface-2); color: var(--fw-ink); border-color: var(--fw-ink-4); }
+    .tool-btn:disabled { opacity: .5; cursor: not-allowed; }
+    /* ── Dance toolbar ── */
+    .dance-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 10px 16px 8px;
+    }
+
+    /* ── Extension pose tracking ── */
+    .ext-pose-wrap {
+      border-top: 1px solid var(--fw-rule);
+      border-bottom: 1px solid var(--fw-rule);
+      margin: 0 0 2px;
+    }
+    .ext-pose-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 14px 6px;
+    }
+    .ext-pose-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--fw-rust);
+      font-weight: 600;
+    }
+    .ext-pose-kp-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--fw-ink-2);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ext-pose-kp-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--fw-ink-4);
+    }
+    .ext-pose-kp-dot.active { background: #B5CC92; box-shadow: 0 0 5px rgba(181,204,146,.55); }
+    .ext-pose-btn {
+      font-size: 11px;
+      font-family: 'Geist', system-ui, sans-serif;
+      padding: 4px 10px;
+      border: 1px solid var(--fw-rule);
+      border-radius: 6px;
+      background: var(--fw-surface);
+      color: var(--fw-ink-2);
+      cursor: pointer;
+      transition: background .1s, color .1s;
+    }
+    .ext-pose-btn:hover { background: var(--fw-surface-2); color: var(--fw-ink); }
+    .ext-pose-btn.active { background: var(--fw-rust); color: #fff; border-color: transparent; }
+    .ext-pose-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .ext-pose-cam-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      max-height: 180px;
+      background: #0E0805;
+      overflow: hidden;
+      display: none;
+    }
+    .ext-pose-cam-wrap.visible { display: block; }
+    .ext-pose-video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .ext-pose-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .ext-pose-idle-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 6px;
+      background: rgba(14,8,5,.8);
+    }
+    .ext-pose-idle-icon { font-size: 22px; opacity: .5; }
+    .ext-pose-idle-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--fw-ink-3);
+    }
+    /* Pose reviews */
+    .ext-reviews-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px 4px;
+    }
+    .ext-reviews-list {
+      padding: 0 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .ext-review-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border: 1px solid var(--fw-rule);
+      border-radius: 6px;
+      background: var(--fw-surface);
+    }
+    .ext-review-ts {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--fw-rust);
+      flex-shrink: 0;
+      min-width: 32px;
+    }
+    .ext-review-bar {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--fw-surface-inset);
+      overflow: hidden;
+    }
+    .ext-review-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: #B5CC92;
+    }
+    .ext-review-score {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--fw-ink-2);
+      flex-shrink: 0;
+    }
+
+    /* ── Primary button ── */
+    .primary {
+      padding: 9px 14px;
+      background: var(--fw-rust);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 500;
+      font-family: 'Geist', system-ui, sans-serif;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity .12s;
+      letter-spacing: -.005em;
+    }
+    .primary:hover { opacity: .88; }
+    .primary:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* ── Captions section ── */
+    .caption-gen-block {
+      padding: 12px 14px;
+      background: var(--fw-surface);
+      border: 1px solid var(--fw-rule);
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .caption-gen-title { font-size: 12.5px; font-weight: 500; color: var(--fw-ink); }
+    .caption-gen-sub { font-size: 11px; color: var(--fw-ink-3); line-height: 1.55; }
+
+    #caption-audio-fallback {
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      padding: 12px 14px;
+      background: var(--fw-surface);
+      border: 1px solid var(--fw-rule);
+      border-radius: 9px;
+    }
+    #caption-error { display: none; font-size: 11px; color: var(--fw-err); line-height: 1.5; }
+    #caption-controls {
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      padding: 10px 12px;
+      border: 1px solid var(--fw-rule);
+      border-radius: 9px;
+      background: var(--fw-surface);
+    }
+    #caption-controls > div:first-child {
+      display: grid !important;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+      align-items: stretch;
+    }
+    #caption-translate-row {
+      display: none;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+      align-items: center;
+    }
+    #caption-translated-toggle-row { display: none; }
+    .caption-row {
+      padding: 8px 10px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      transition: background .1s, border-color .1s;
+      line-height: 1.5;
+    }
+    .caption-row:hover { background: var(--fw-surface); border-color: var(--fw-rule); }
+    .caption-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--fw-rust);
+      flex-shrink: 0;
+      margin-top: 2px;
+      letter-spacing: .04em;
+    }
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      resize: vertical;
+      padding: 8px 10px;
+      border: 1px solid var(--fw-rule);
+      border-radius: 7px;
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 12px;
+      background: var(--fw-surface-inset);
+      color: var(--fw-ink);
+      outline: none;
+    }
+    textarea:focus { border-color: var(--fw-rust); }
+    input[type="text"], #caption-lang-input {
+      padding: 7px 10px;
+      border: 1px solid var(--fw-rule);
+      border-radius: 7px;
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 12px;
+      background: var(--fw-surface-inset);
+      color: var(--fw-ink);
+      outline: none;
+    }
+    input[type="text"]:focus, #caption-lang-input:focus { border-color: var(--fw-rust); }
+    details {
+      border: 1px solid var(--fw-rule);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    details summary {
+      padding: 9px 11px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--fw-ink-3);
+      cursor: pointer;
+      list-style: none;
+    }
+    details > div {
+      padding: 10px 11px;
+      border-top: 1px solid var(--fw-rule);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    /* ── Chat tab layout ── */
+    #tab-chat.open {
+      min-height: 320px;
+    }
+
+    /* ── Chat messages ── */
+    #chat-area {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-height: 160px;
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 8px 12px 4px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--fw-rule) transparent;
+    }
+    #chat-area::-webkit-scrollbar { width: 3px; }
+    #chat-area::-webkit-scrollbar-thumb { background: var(--fw-rule); border-radius: 2px; }
+    .msg {
+      padding: 8px 11px;
+      border-radius: 9px;
+      font-size: 12.5px;
+      max-width: 92%;
+      line-height: 1.55;
+    }
+    .msg.user {
+      background: var(--fw-rust);
+      color: #fff;
+      align-self: flex-end;
+      border-bottom-right-radius: 3px;
+    }
+    .msg.assistant {
+      background: var(--fw-surface);
+      border: 1px solid var(--fw-rule);
+      align-self: flex-start;
+      color: var(--fw-ink-2);
+      border-bottom-left-radius: 3px;
+    }
+    .fw-typing {
+      align-self: flex-start;
+      display: flex;
+      gap: 4px;
+      padding: 10px 12px;
+      background: var(--fw-surface);
+      border: 1px solid var(--fw-rule);
+      border-radius: 9px;
+    }
+    .fw-typing span {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--fw-rust);
+      animation: fw-bounce .9s ease-in-out infinite;
+    }
+    .fw-typing span:nth-child(2) { animation-delay: .2s; }
+    .fw-typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes fw-bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+    .fw-jump-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 5px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--fw-rule);
+      background: var(--fw-surface-inset);
+      color: var(--fw-rust);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .msg.error {
+      border-color: rgba(238,146,104,.35) !important;
+      color: var(--fw-err) !important;
+      font-size: 11.5px;
+    }
+
+    /* ── Bottom dock ── */
+    .fw-dock {
+      flex-shrink: 0;
+      display: none;
+      flex-direction: column;
+      border-top: 1px solid var(--fw-rule);
+      background: var(--fw-bg);
+    }
+
+    /* Chat chips */
+    .fw-dock-chips {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      padding: 8px 12px 4px;
+    }
+    .chip-btn {
+      padding: 4px 9px;
+      background: var(--fw-surface);
+      color: var(--fw-ink-3);
+      border: 1px solid var(--fw-rule);
+      border-radius: 999px;
+      font-size: 11px;
+      font-family: 'Geist', system-ui, sans-serif;
+      cursor: pointer;
+      transition: background .1s, color .1s, border-color .1s;
+      white-space: nowrap;
+    }
+    .chip-btn:hover { background: var(--fw-rust-soft); color: var(--fw-rust-ink); border-color: var(--fw-rust); }
+
+    /* Dock opts row */
+    .fw-dock-opts {
+      display: flex;
+      gap: 12px;
+      padding: 4px 14px 6px;
+    }
+    .fw-dock-opt-label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--fw-ink-4);
+      cursor: pointer;
+      user-select: none;
+    }
+    .fw-dock-opt-label input { accent-color: var(--fw-rust); }
+
+    /* Dock form */
+    #chat-form {
+      display: flex;
+      padding: 6px 12px 10px;
+      gap: 6px;
+      align-items: center;
+    }
+    .composer-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 12px;
+      background: var(--fw-surface-inset);
+      border: 1px solid var(--fw-rule);
+      border-radius: 999px;
+      transition: border-color .1s;
+    }
+    .composer-wrap:focus-within { border-color: var(--fw-rust); }
+    .composer-wrap svg { width: 12px; height: 12px; fill: none; stroke: var(--fw-rust); stroke-width: 1.5; flex-shrink: 0; }
+    #chat-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 12.5px;
+      color: var(--fw-ink);
+    }
+    #chat-input::placeholder { color: var(--fw-ink-4); }
+    #send-btn {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      border: none;
+      border-radius: 50%;
+      background: var(--fw-rust);
+      color: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: opacity .12s, transform .1s;
+    }
+    #send-btn:hover { opacity: .85; transform: scale(1.05); }
+    #send-btn svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Shared mono utility ── */
+    .fw-tc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .05em;
+      color: var(--fw-ink-3);
+    }
+
+    /* ── Video thumbnail ── */
+    .fw-video-thumb {
+      width: 80px;
+      height: 45px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 1px solid var(--fw-rule);
+      display: none;
+    }
+    .fw-video-thumb.loaded { display: block; }
+
+    /* ── App icon (auth + no-video states) ── */
+    .fw-app-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+    }
+
+    /* ── Header voice style select ── */
+    .fw-voice-style {
+      display: none;
+      background: var(--fw-surface);
+      border: 1px solid var(--fw-rule);
+      border-radius: 6px;
+      color: var(--fw-ink-3);
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 10.5px;
+      padding: 4px 5px;
+      cursor: pointer;
+      outline: none;
+      max-width: 64px;
+    }
+    .fw-voice-style.visible { display: block; }
+    .fw-voice-style:focus { border-color: var(--fw-rust); }
+
+    /* ── No video state ── */
+    #no-video-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 40px 20px 24px;
+      gap: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Filmstrip motif -->
+  <div class="fw-filmstrip">
+    <div class="fw-film-notches">
+      <span class="fw-film-notch"></span><span class="fw-film-notch"></span>
+      <span class="fw-film-notch"></span><span class="fw-film-notch"></span>
+      <span class="fw-film-notch"></span><span class="fw-film-notch"></span>
+      <span class="fw-film-notch"></span>
+    </div>
+    <span class="fw-film-label">FRAMEWISE · REEL</span>
+    <div class="fw-film-notches">
+      <span class="fw-film-notch"></span><span class="fw-film-notch"></span>
+      <span class="fw-film-notch"></span><span class="fw-film-notch"></span>
+      <span class="fw-film-notch"></span><span class="fw-film-notch"></span>
+      <span class="fw-film-notch"></span>
+    </div>
+  </div>
+
+  <!-- Header: logo · status · voice · theme · (settings placeholder) -->
+  <div class="fw-header">
+    <div class="fw-header-brand">
+      <svg width="20" height="20" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ext-g" x1="16" y1="8" x2="48" y2="56" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FEC9AF"/>
+            <stop offset="100%" stop-color="#C56A43"/>
+          </linearGradient>
+        </defs>
+        <rect x="14" y="14" width="20" height="9" rx="1.5" fill="none" stroke="url(#ext-g)" stroke-width="2.5"/>
+        <rect x="18" y="15.5" width="3" height="4" rx="0.8" fill="url(#ext-g)"/>
+        <rect x="27" y="15.5" width="3" height="4" rx="0.8" fill="url(#ext-g)"/>
+        <rect x="14" y="28" width="20" height="7" rx="1.5" fill="none" stroke="url(#ext-g)" stroke-width="2.5"/>
+        <line x1="16" y1="52" x2="48" y2="52" stroke="url(#ext-g)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="22" cy="52" r="2.5" fill="url(#ext-g)"/>
+        <line x1="16" y1="14" x2="16" y2="52" stroke="url(#ext-g)" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span class="fw-wordmark">framewise<span class="dot">.</span></span>
+    </div>
+
+    <div class="fw-header-center">
+      <span class="fw-status" id="status">Detecting…</span>
+    </div>
+
+    <div class="fw-header-actions">
+      <!-- Voice toggle + style (style only visible when voice is on) -->
+      <button class="fw-icon-btn" id="toggle-voice-btn" title="Enable voice replies">
+        <svg id="voice-on-icon" viewBox="0 0 24 24" style="display:none"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" stroke-linecap="round"/></svg>
+        <svg id="voice-off-icon" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
+      <select id="voice-profile-input" class="fw-voice-style" title="Voice style">
+        <option value="default">Narrator</option>
+        <option value="coach">Coach</option>
+      </select>
+      <!-- Theme toggle -->
+      <button class="fw-icon-btn" id="theme-toggle-btn" title="Toggle theme">
+        <!-- Icon replaced by JS -->
+        <svg id="theme-icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main scrollable area -->
+  <div id="main">
+
+    <!-- Not signed in -->
+    <div id="not-logged-in" style="display:none;">
+      <img src="../../icons/icon128.png" class="fw-app-icon" alt="Framewise" />
+      <p class="fw-screen-title">Not signed in</p>
+      <p class="fw-screen-sub">Sign in to Framewise in your browser, then retry below.</p>
+      <button class="primary" id="retry-btn" style="width:100%;max-width:200px;">Retry</button>
+      <button id="open-app-btn" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--fw-rust);font-family:inherit;">
+        Open Framewise →
+      </button>
+    </div>
+
+    <!-- App screen -->
+    <div id="app-screen" style="display:none;flex-direction:column;flex:1;">
+
+      <!-- Video context -->
+      <div class="fw-video-strip">
+        <div class="fw-video-title-row">
+          <img id="video-thumb" class="fw-video-thumb" alt="" />
+          <div id="video-info"></div>
+          <span id="video-mode" class="video-mode-badge" style="display:none;"></span>
+        </div>
+      </div>
+
+      <!-- Quick actions: bookmark · note · open -->
+      <div id="quick-actions">
+        <button id="quick-bookmark-btn" class="fw-qa-btn">
+          <svg viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3-7 3V5z"/></svg>
+          Bookmark
+        </button>
+        <div id="quick-note-wrap">
+          <input id="quick-note-input" placeholder="Quick note…" />
+          <button id="quick-note-btn" class="fw-qa-btn">Save</button>
+        </div>
+        <button id="open-in-app-btn" class="fw-qa-btn" title="Open in Framewise web app">
+          <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+          Open
+        </button>
+      </div>
+
+      <!-- Progress bar (segment indicators) -->
+      <div class="fw-progress" id="fw-progress-bar" style="display:none;"></div>
+
+      <!-- No video detected state -->
+      <div id="no-video-state">
+        <img src="../../icons/icon128.png" class="fw-app-icon" alt="Framewise" />
+        <p class="fw-screen-title">No video detected</p>
+        <p class="fw-screen-sub">Navigate to a YouTube video and Framewise will load it automatically.</p>
+        <button class="primary" id="browse-youtube-btn" style="width:100%;max-width:200px;">Open YouTube</button>
+      </div>
+
+      <!-- Analyze button -->
+      <button id="analyze-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><path d="M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></svg>
+        Analyze this video
+      </button>
+
+      <!-- Accordion sections -->
+      <div class="fw-sections">
+
+        <!-- TIMELINE -->
+        <div class="fw-section" id="section-timeline">
+          <button class="fw-section-hdr open" data-section="segments">
+            <span class="fw-section-hdr-icon">
+              <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 6h6a2 2 0 0 1 2 2v2M8 18h6a2 2 0 0 0 2-2v-2"/></svg>
+            </span>
+            <span class="fw-section-hdr-label">Timeline</span>
+            <span class="fw-section-hdr-badge" id="timeline-count" style="display:none;"></span>
+            <span class="fw-section-chevron">
+              <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            </span>
+          </button>
+          <div id="tab-segments" class="fw-section-body open">
+            <div class="fw-search-row">
+              <div class="fw-search-wrap">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input id="segment-search" placeholder="Search timeline…" />
+              </div>
+            </div>
+            <div id="segments">
+              <p class="fw-empty">Analyze this video to generate the topic timeline.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHAT -->
+        <div class="fw-section" id="section-chat">
+          <button class="fw-section-hdr" data-section="chat">
+            <span class="fw-section-hdr-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <span class="fw-section-hdr-label">Chat</span>
+            <span class="fw-section-chevron">
+              <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            </span>
+          </button>
+          <div id="tab-chat" class="fw-section-body">
+            <div id="chat-area"></div>
+            <div class="fw-dock-chips" id="chat-chips">
+              <button class="chip-btn" data-msg="Summarize this video">Summarize</button>
+              <button class="chip-btn" data-msg="What are the key points?">Key points</button>
+              <button class="chip-btn" data-msg="Quiz me on this video">Quiz me</button>
+              <button class="chip-btn" data-msg="What happens at the beginning?">Intro</button>
+            </div>
+            <form id="chat-form">
+              <div class="composer-wrap">
+                <svg viewBox="0 0 24 24"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><path d="M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></svg>
+                <input id="chat-input" placeholder="Ask about this video…" />
+              </div>
+              <button id="send-btn" type="button">
+                <svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-3-7-7-1z"/></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- CAPTIONS -->
+        <div class="fw-section" id="section-captions">
+          <button class="fw-section-hdr" data-section="captions">
+            <span class="fw-section-hdr-icon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h4M7 11h8"/></svg>
+            </span>
+            <span class="fw-section-hdr-label">Captions</span>
+            <span class="fw-section-chevron">
+              <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            </span>
+          </button>
+          <div id="tab-captions" class="fw-section-body">
+            <div class="fw-section-inner">
+              <div class="caption-gen-block">
+                <div class="caption-gen-title">Auto-generate from YouTube</div>
+                <div class="caption-gen-sub">Fetches the transcript with precise timestamps.</div>
+                <button class="primary" id="caption-generate-btn">Generate captions</button>
+              </div>
+
+              <div id="caption-audio-fallback">
+                <div class="caption-gen-title">No YouTube captions found</div>
+                <div class="caption-gen-sub">Transcribe audio with ElevenLabs — may take 1–2 min.</div>
+                <button class="primary" id="caption-audio-btn">Transcribe with ElevenLabs</button>
+              </div>
+
+              <p id="caption-error"></p>
+
+              <div id="caption-controls">
+                <label class="fw-dock-opt-label" style="margin-bottom:8px;justify-content:space-between;">
+                  <span>Auto-inject generated captions</span>
+                  <input type="checkbox" id="caption-auto-inject-input" />
+                </label>
+                <div>
+                  <button class="primary" id="caption-inject-btn" style="flex:1;">Add captions to video</button>
+                  <button class="tool-btn" id="caption-translate-toggle-btn">Translate ▾</button>
+                </div>
+                <div id="caption-translate-row">
+                  <input id="caption-lang-input" value="Spanish" placeholder="Language" />
+                  <button class="tool-btn" id="caption-translate-btn">Go</button>
+                </div>
+                <div id="caption-translated-toggle-row">
+                  <button class="tool-btn" id="caption-show-translated-btn" style="width:100%;"></button>
+                </div>
+              </div>
+
+              <details>
+                <summary>Paste transcript for AI correction</summary>
+                <div>
+                  <textarea id="caption-input" placeholder="Paste subtitles here, one per line…"></textarea>
+                  <button class="primary" id="caption-correct-btn">Fix with AI</button>
+                </div>
+              </details>
+
+              <div id="caption-results" style="display:flex;flex-direction:column;gap:3px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRACTICE (Dance) -->
+        <div class="fw-section" id="section-practice">
+          <button class="fw-section-hdr" data-section="dance">
+            <span class="fw-section-hdr-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="1.5"/><path d="M12 6v6M9 9l3 3 3-3M9 18l3-6 3 6M8 14l-2 4M16 14l2 4"/></svg>
+            </span>
+            <span class="fw-section-hdr-label">Practice</span>
+            <span class="fw-section-chevron">
+              <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            </span>
+          </button>
+          <div id="tab-dance" class="fw-section-body">
+            <div class="dance-toolbar">
+              <button class="primary" id="dance-analyze-btn">Dance summary</button>
+              <button class="tool-btn" id="skeleton-btn">Open Practice</button>
+            </div>
+
+            <!-- Live pose tracking -->
+            <div class="ext-pose-wrap">
+              <div class="ext-pose-header">
+                <span class="ext-pose-eyebrow">Live Pose</span>
+                <span class="ext-pose-kp-pill" id="ext-pose-kp-pill">
+                  <span class="ext-pose-kp-dot" id="ext-pose-kp-dot"></span>
+                  <span id="ext-pose-kp-label">—</span>
+                </span>
+                <button class="ext-pose-btn" id="ext-pose-btn" disabled>Loading…</button>
+              </div>
+              <div class="ext-pose-cam-wrap" id="ext-pose-cam-wrap">
+                <video id="ext-pose-video" class="ext-pose-video" playsinline muted></video>
+                <canvas id="ext-pose-canvas" class="ext-pose-canvas"></canvas>
+                <div class="ext-pose-idle-overlay" id="ext-pose-idle">
+                  <span class="ext-pose-idle-icon">⬡</span>
+                  <span class="ext-pose-idle-label">Starting camera…</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pose snap reviews -->
+            <div class="ext-reviews-header">
+              <span class="ext-pose-eyebrow">Pose Snaps</span>
+            </div>
+            <div class="ext-reviews-list" id="ext-reviews-list">
+              <p class="fw-empty" id="ext-reviews-empty">Snaps appear at each section while webcam is on.</p>
+            </div>
+
+            <!-- Dance segments -->
+            <div id="dance-segments">
+              <p class="fw-empty">Generate a dance summary or open the full Practice workspace in Framewise.</p>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- .fw-sections -->
+
+    </div><!-- #app-screen -->
+  </div><!-- #main -->
+
+  <!-- fw-dock stub: kept for JS null-safety; chat content lives in #tab-chat -->
+  <div id="fw-dock" style="display:none;"></div>
+
+  <!-- TF.js (core + WASM backend + converter) bundled locally — no WebGL to avoid eval() CSP errors -->
+  <script src="../../lib/tf-core.min.js"></script>
+  <script src="../../lib/tf-backend-wasm.min.js"></script>
+  <script src="../../lib/tf-converter.min.js"></script>
+  <script src="../../lib/pose-detection.min.js"></script>
+  <script src="../config.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

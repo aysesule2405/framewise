@@ -1,0 +1,278 @@
+.dash {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* ── Hero ── */
+.dash-hero { display: flex; flex-direction: column; gap: 6px; }
+.dash-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--fw-rust);
+  font-weight: 500;
+}
+.dash-title {
+  font-family: 'Geist', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: -.03em;
+  color: var(--fw-ink);
+  margin: 0;
+  line-height: 1.15;
+}
+.dash-sub {
+  font-size: 14px;
+  color: var(--fw-ink-3);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Chat input ── */
+.dash-chat-wrap { display: flex; flex-direction: column; gap: 12px; }
+
+.dash-chat-form { display: flex; flex-direction: column; gap: 8px; }
+
+.dash-chat-inner {
+  display: flex;
+  align-items: center;
+  background: var(--fw-surface);
+  border: 1px solid var(--fw-rule);
+  border-radius: 12px;
+  padding: 0 6px 0 14px;
+  gap: 10px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dash-chat-inner:focus-within {
+  border-color: var(--fw-peach);
+  box-shadow: 0 0 0 3px var(--fw-peach-soft);
+}
+
+.dash-chat-icon { display: flex; align-items: center; flex-shrink: 0; }
+.dash-chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 14px 0;
+  font-size: 14.5px;
+  color: var(--fw-ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  letter-spacing: -.01em;
+  min-width: 0;
+}
+.dash-chat-input::placeholder { color: var(--fw-ink-3); }
+.dash-chat-input:disabled { opacity: .6; }
+
+.dash-chat-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: var(--fw-ink);
+  color: var(--fw-bg);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: opacity .12s;
+}
+.dash-chat-send:hover { opacity: .85; }
+
+/* Progress */
+.dash-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+.dash-progress-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--fw-rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.dash-progress-fill {
+  height: 100%;
+  width: 60%;
+  background: var(--fw-rust);
+  border-radius: 2px;
+  animation: dash-slide 1.4s ease-in-out infinite;
+}
+@keyframes dash-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.dash-progress-label {
+  font-size: 11.5px;
+  color: var(--fw-ink-3);
+  white-space: nowrap;
+}
+.dash-error {
+  font-size: 12.5px;
+  color: var(--fw-err);
+  padding: 7px 10px;
+  background: var(--fw-rust-soft);
+  border-radius: 6px;
+  border: 1px solid rgba(197,106,67,.2);
+  margin: 0;
+}
+.dash-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--fw-rule);
+  border-top-color: var(--fw-rust);
+  border-radius: 50%;
+  animation: dash-spin .7s linear infinite;
+}
+@keyframes dash-spin { to { transform: rotate(360deg); } }
+
+/* Chips */
+.dash-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.dash-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--fw-rule);
+  background: var(--fw-surface);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 12.5px;
+  color: var(--fw-ink-2);
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.dash-chip:hover {
+  background: var(--fw-peach-soft);
+  border-color: var(--fw-peach);
+  color: var(--fw-ink);
+}
+
+/* ── Recent section ── */
+.dash-recent { display: flex; flex-direction: column; gap: 14px; }
+.dash-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--fw-ink-3);
+  font-weight: 500;
+}
+.dash-see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--fw-ink-3);
+  font-family: 'Geist', system-ui, sans-serif;
+  padding: 0;
+  transition: color .12s;
+}
+.dash-see-all:hover { color: var(--fw-ink); }
+
+.dash-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+}
+
+/* Card */
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--fw-surface);
+  border: 1px solid var(--fw-rule);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+  padding: 0;
+}
+.dash-card:hover {
+  border-color: var(--fw-peach);
+  box-shadow: var(--fw-shadow-1);
+  transform: translateY(-2px);
+}
+.dash-card-thumb {
+  position: relative;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: var(--fw-bg-deep);
+}
+.dash-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dash-card-thumb-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dash-card-mode {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 20px;
+  background: rgba(20,14,10,.65);
+  backdrop-filter: blur(4px);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--pill-color, #fff);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.dash-card-body {
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dash-card-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--fw-ink);
+  margin: 0;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.dash-card-progress {
+  height: 2.5px;
+  background: var(--fw-rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.dash-card-bar {
+  height: 100%;
+  background: var(--fw-rust);
+  border-radius: 2px;
+  transition: width .3s ease;
+}

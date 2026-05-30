@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check src/server.js)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(Start-Sleep -Seconds 3)",
+      "Bash(Get-Content \"C:\\\\Users\\\\admin302\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-admin302-Desktop-framewise\\\\b3e07e4a-f63d-4521-8893-44d9714e7a9b\\\\tasks\\\\bwhqbaepv.output\" -ErrorAction SilentlyContinue)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const {connectDB} = require\\('./src/config/db'\\); connectDB\\(\\).then\\(\\(\\) => console.log\\('DB OK'\\)\\).catch\\(e => console.error\\('DB ERROR:', e.message\\)\\);\")",
+      "Bash(node generate-icons.js)",
+      "Bash(node src/server.js)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :5000)",
+      "Bash(taskkill /PID 84060 /F)",
+      "PowerShell(Stop-Process -Id 84060 -Force)",
+      "PowerShell($pid = \\(Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue\\).OwningProcess | Select-Object -First 1; if \\($pid\\) { Stop-Process -Id $pid -Force; Write-Output \"Killed PID $pid\" } else { Write-Output \"Port 5000 bos\" })",
+      "Bash(node -e ' *)",
+      "Bash(git fetch *)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(cd C:/Users/admin302/Desktop/framewise/backend && npm install 2>&1 | tail -3 && cd ../frontend && npm install 2>&1 | tail -3)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\\\\Desktop\" /AD /B)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\" /B)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\\\\Documents\" /B)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\\\\Documents\\\\New project\" /B)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\\\\Documents\\\\New project 2\" /B)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\\\\Documents\\\\Codex\" /B)",
+      "Bash(dir \"C:\\\\Users\\\\admin302\\\\source\\\\repos\" /B)"
+    ]
+  }
+}
