@@ -3,6 +3,7 @@ import { useId } from "react";
 export default function FramewiseMark({ size = 64, variant = "gradient" }) {
   const uid = useId().replace(/:/g, "");
   const gradId = `fw-bg-grad-${uid}`;
+  const strokeGradId = `fw-stroke-grad-${uid}`;
 
   const fills = {
     gradient:    { bg: `url(#${gradId})`, fg: "#FFF2DC", accent: "#FFE2C8" },
@@ -11,6 +12,26 @@ export default function FramewiseMark({ size = 64, variant = "gradient" }) {
     outline:      { bg: "transparent",     fg: "#2A1810", accent: "#C56A43", stroke: "#2A1810" },
   };
   const f = fills[variant] || fills.gradient;
+
+  if (variant === "outline-gradient") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Framewise mark">
+        <defs>
+          <linearGradient id={strokeGradId} x1="16" y1="8" x2="48" y2="56" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#FEC9AF" />
+            <stop offset="100%" stopColor="#C56A43" />
+          </linearGradient>
+        </defs>
+        <rect x="14" y="14" width="20" height="9" rx="1.5" fill="none" stroke={`url(#${strokeGradId})`} strokeWidth="2.5" />
+        <rect x="18" y="15.5" width="3" height="4" rx="0.8" fill={`url(#${strokeGradId})`} />
+        <rect x="27" y="15.5" width="3" height="4" rx="0.8" fill={`url(#${strokeGradId})`} />
+        <rect x="14" y="28" width="20" height="7" rx="1.5" fill="none" stroke={`url(#${strokeGradId})`} strokeWidth="2.5" />
+        <line x1="16" y1="52" x2="48" y2="52" stroke={`url(#${strokeGradId})`} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="22" cy="52" r="2.5" fill={`url(#${strokeGradId})`} />
+        <line x1="16" y1="14" x2="16" y2="52" stroke={`url(#${strokeGradId})`} strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
 
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="Framewise mark">

@@ -3,7 +3,9 @@ const mongoose = require("mongoose");
 const videoSchema = new mongoose.Schema(
   {
     userId:         { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    source:         { type: String, enum: ["youtube", "upload"], required: true },
+    source:         { type: String, enum: ["youtube", "youtube-shorts", "vimeo", "tiktok", "canvas", "generic", "upload"], required: true },
+    geminiFileUri:        { type: String },
+    geminiFileUriExpires: { type: Date },
     url:            { type: String, required: true },
     title:          { type: String, default: "Untitled Video" },
     thumbnail:      { type: String },
@@ -38,5 +40,7 @@ videoSchema.index({ userId: 1, lastWatchedAt: -1 });
 videoSchema.index({ userId: 1, collectionIds: 1 });
 videoSchema.index({ userId: 1, detectedMode: 1 });
 videoSchema.index({ userId: 1, modeOverride: 1 });
+// TTL index: auto-nulls geminiFileUri references after Gemini's 48-hour file retention
+videoSchema.index({ geminiFileUriExpires: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("Video", videoSchema);

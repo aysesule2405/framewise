@@ -3,12 +3,9 @@
   "name": "Framewise",
   "version": "1.0.0",
   "description": "AI-powered video learning assistant — timelines, chat, and voice.",
-  "permissions": ["storage", "activeTab", "scripting", "sidePanel", "tabs"],
+  "permissions": ["storage", "activeTab", "scripting", "sidePanel", "tabs", "tabCapture", "offscreen"],
   "host_permissions": [
-    "https://www.youtube.com/*",
-    "https://img.youtube.com/*",
-    "http://localhost:3001/*",
-    "http://localhost:5174/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "src/background.js"
@@ -18,7 +15,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["<all_urls>"],
       "js": [
         "dist/content.js"
       ],

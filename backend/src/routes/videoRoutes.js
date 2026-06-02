@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
 const { protect } = require("../middleware/auth");
 const validateObjectId = require("../middleware/validateObjectId");
 const timeout = require("../middleware/timeout");
@@ -7,8 +8,13 @@ const rateLimiter = require("../middleware/rateLimiter");
 const {
   analyzeVideo, analyzeDance, getVideo, listVideos, searchVideos, lookupVideo, updateProgress,
   deleteVideo, getSegments, getCaptions, correctCaptions, generateCaptions, generateCaptionsAudio, translateCaptions, generateQuiz,
-  saveCaptions, importTranscript, updateVideoMode,
+  saveCaptions, importTranscript, updateVideoMode, uploadCaptureAndAnalyze, generateCaptionsCaptured,
 } = require("../controllers/videoController");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 500 * 1024 * 1024 },
+});
 const { getNotes, addNote, deleteNote, generateNotes } = require("../controllers/notesController");
 const { listBookmarks, addBookmark, updateBookmark, deleteBookmark } = require("../controllers/bookmarkController");
 
@@ -18,7 +24,8 @@ router.use(protect);
 const aiLimit = rateLimiter({ windowMs: 60_000, max: 15, message: "Too many AI requests — please wait a minute." });
 
 // Non-parameterized routes
-router.post("/analyze",  aiLimit, timeout(180_000), analyzeVideo);
+router.post("/analyze",         aiLimit, timeout(180_000), analyzeVideo);
+router.post("/upload-capture",  aiLimit, timeout(600_000), upload.single("file"), uploadCaptureAndAnalyze);
 router.get("/search",                      searchVideos);
 router.get("/lookup",                      lookupVideo);
 router.get("/",                            listVideos);
@@ -39,8 +46,9 @@ router.post("/:videoId/bookmarks",               vid,   addBookmark);
 router.patch("/:videoId/bookmarks/:bookmarkId",  vidBm, updateBookmark);
 router.delete("/:videoId/bookmarks/:bookmarkId", vidBm, deleteBookmark);
 router.get("/:videoId/captions",                 vid,   getCaptions);
-router.post("/:videoId/captions/generate",       vid,   aiLimit, generateCaptions);
-router.post("/:videoId/captions/generate-audio", vid,   aiLimit, timeout(300_000), generateCaptionsAudio);
+router.post("/:videoId/captions/generate",         vid,   aiLimit, generateCaptions);
+router.post("/:videoId/captions/generate-audio",   vid,   aiLimit, timeout(300_000), generateCaptionsAudio);
+router.post("/:videoId/captions/generate-capture", vid,   aiLimit, timeout(300_000), upload.single("file"), generateCaptionsCaptured);
 router.post("/:videoId/captions/correct",        vid,   aiLimit, timeout(180_000), correctCaptions);
 router.post("/:videoId/captions/translate",      vid,   aiLimit, translateCaptions);
 router.put("/:videoId/captions",                 vid,   saveCaptions);

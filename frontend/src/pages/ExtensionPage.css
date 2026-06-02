@@ -25,9 +25,16 @@
 
 .ep-hero {
   position: relative; z-index: 1;
-  padding: 64px 80px 0;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  column-gap: 64px;
+  align-items: center;
+  padding: 72px 80px 80px;
   max-width: 1180px;
+  margin: 0 auto;
 }
+
+.ep-hero-text { display: flex; flex-direction: column; }
 
 .ep-hero-badge {
   display: inline-flex; align-items: center; gap: 7px;
@@ -63,7 +70,7 @@
 
 .ep-hero-actions {
   display: flex; align-items: center; gap: 20px;
-  margin-top: 28px;
+  margin-top: 44px;
 }
 
 .ep-cta-btn {
@@ -85,9 +92,9 @@
 /* ── Panel mockup ──────────────────────────────────────────── */
 
 .ep-panel-preview {
-  margin-top: 48px;
-  display: flex; justify-content: flex-end;
-  padding-right: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .ep-panel-frame {
@@ -202,11 +209,14 @@
 
 .ep-steps {
   position: relative; z-index: 1;
-  padding: 80px 80px 60px; max-width: 900px;
+  padding: 80px 80px 64px;
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
 .ep-steps-list {
   display: flex; flex-direction: column; gap: 0;
+  max-width: 720px;
 }
 
 .ep-step {
@@ -287,7 +297,9 @@
 
 .ep-features {
   position: relative; z-index: 1;
-  padding: 20px 80px 80px; max-width: 1180px;
+  padding: 32px 80px 64px;
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
 .ep-features-grid {
@@ -324,14 +336,18 @@
 /* ── Requirements note ─────────────────────────────────────── */
 
 .ep-note-section {
-  padding: 0 80px 80px; max-width: 900px; position: relative; z-index: 1;
+  padding: 32px 80px 64px;
+  max-width: 1180px;
+  margin: 0 auto;
+  position: relative; z-index: 1;
 }
 
 .ep-note-card {
   background: var(--fw-surface);
   border: 1px solid var(--fw-rule);
   border-radius: var(--fw-r-md);
-  padding: 24px 28px;
+  padding: 28px 32px;
+  max-width: 720px;
 }
 
 .ep-note-grid {
@@ -352,34 +368,43 @@
 
 .ep-footer-cta {
   position: relative; z-index: 1;
-  padding: 0 80px 80px;
+  padding: 0 0 80px;
 }
 
 .ep-footer-filmstrip {
-  height: 18px; background: #0E0805;
+  height: 20px; background: #0E0805;
   display: flex; align-items: center;
-  padding: 0 10px; gap: 5px;
+  padding: 0 16px; gap: 6px;
+  overflow: hidden;
 }
 .ep-filmstrip-hole {
-  width: 5px; height: 7px;
+  width: 5px; height: 8px;
   background: #3A2A1D; border-radius: 1px; flex-shrink: 0;
 }
 
 .ep-footer-cta-body {
   background: var(--fw-surface);
-  border-left: 1px solid var(--fw-rule);
-  border-right: 1px solid var(--fw-rule);
-  padding: 40px 48px;
+  padding: 64px 80px 64px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .ep-cta-title {
   font-family: 'Geist', system-ui, sans-serif;
-  font-weight: 500; font-size: 36px; letter-spacing: -.03em;
-  line-height: 1.1; color: var(--fw-ink); margin: 0 0 24px;
+  font-weight: 500; font-size: 42px; letter-spacing: -.035em;
+  line-height: 1.08; color: var(--fw-ink); margin: 0 0 20px;
+}
+
+.ep-cta-sub {
+  font-size: 15px; line-height: 1.55; color: var(--fw-ink-2);
+  max-width: 420px; margin: 0 0 48px;
 }
 
 .ep-cta-row {
   display: flex; align-items: center; gap: 22px;
+  justify-content: center;
 }
 
 /* ── Responsive ────────────────────────────────────────────── */
@@ -388,9 +413,13 @@
   .ep-hero, .ep-steps, .ep-features, .ep-note-section, .ep-footer-cta {
     padding-left: 24px; padding-right: 24px;
   }
+  .ep-hero {
+    grid-template-columns: 1fr;
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
   .ep-hero-title { font-size: 38px; }
   .ep-features-grid { grid-template-columns: 1fr; }
   .ep-note-grid { grid-template-columns: 1fr; }
   .ep-panel-preview { display: none; }
-  .ep-hero { padding-top: 40px; }
 }

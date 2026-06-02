@@ -1116,7 +1116,11 @@ export default function VideoPage() {
                           {formatTime(step.startTime)}
                         </button>
                         <div className="vp-seg-body">
-                          <p className="vp-seg-title">{step.title}</p>
+                          <p className="vp-seg-title">
+                            {step.title}
+                            {step.moveName && <span className="vp-move-badge">{step.moveName}</span>}
+                          </p>
+                          {step.moveCategory && <p className="vp-seg-summary" style={{ color: "var(--fw-ink-4)", textTransform: "capitalize" }}>{step.moveCategory.replace("_", " ")}</p>}
                           {step.movementCue && <p className="vp-seg-summary" style={{ color: "var(--fw-rust)" }}>{step.movementCue}</p>}
                         </div>
                         <button

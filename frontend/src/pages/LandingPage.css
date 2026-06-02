@@ -41,14 +41,14 @@
 .lp-nav-user-name { font-size: 12.5px; color: var(--fw-ink-2); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lp-nav-signout { border: none; background: none; font-size: 12px; color: var(--fw-ink-3); cursor: pointer; padding: 0; font-family: inherit; }
 .lp-nav-signout:hover { color: var(--fw-rust); }
-.lp-hero { position: relative; z-index: 1; padding: 72px 80px 20px; max-width: 1180px; }
+.lp-hero { position: relative; z-index: 1; padding: 48px 80px 40px; max-width: 1180px; }
 .lp-hero-pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px 5px 9px; border-radius: 999px; background: var(--fw-surface); border: 1px solid var(--fw-rule); margin-bottom: 26px; }
 .lp-hero-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--fw-sage); box-shadow: 0 0 8px rgba(114,135,91,.6); }
 .lp-hero-pill-text { font-family: 'JetBrains Mono',monospace; font-size: 10.5px; letter-spacing: .04em; color: var(--fw-ink-2); font-variant-numeric: tabular-nums; }
 .lp-hero-title { font-family: 'Geist',system-ui,sans-serif; font-weight: 600; font-size: 64px; line-height: 1.0; letter-spacing: -.045em; color: var(--fw-ink); margin: 0; }
 .lp-hero-sub { font-family: 'Geist',system-ui,sans-serif; font-weight: 400; font-size: 20px; line-height: 1.4; letter-spacing: -.015em; color: var(--fw-ink-2); max-width: 540px; margin-top: 18px; }
 .lp-italic { font-family: 'Fraunces',Georgia,serif; font-style: italic; font-weight: 400; font-variation-settings: "SOFT" 100, "WONK" 1; letter-spacing: -.015em; color: var(--fw-rust); }
-.lp-hero-ctas { display: flex; align-items: center; gap: 16px; margin-top: 30px; }
+.lp-hero-ctas { display: flex; align-items: center; gap: 16px; margin-top: 44px; }
 .lp .lp-btn-primary { padding: 13px 22px; border-radius: 999px; border: none; background: var(--fw-ink); color: var(--fw-bg); font-family: 'Geist',system-ui,sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; letter-spacing: -.01em; transition: background .12s; }
 .lp .lp-btn-primary:hover { background: var(--fw-ink-2); }
 .lp-btn-ghost { padding: 13px 18px; border-radius: 999px; border: none; background: transparent; font-family: 'Geist',system-ui,sans-serif; font-size: 14px; font-weight: 500; color: var(--fw-ink-2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; letter-spacing: -.01em; text-decoration: none; }
@@ -56,16 +56,32 @@
 .lp-btn-auth { border: 1px solid var(--fw-rule); background: var(--fw-surface); color: var(--fw-ink); }
 .lp-hero-note { font-size: 13px; color: var(--fw-ink-3); letter-spacing: -.005em; margin-left: 4px; }
 .lp-showcase-section { padding: 32px 80px 72px; position: relative; z-index: 1; }
+.lp-showcase-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+.lp-showcase-sub { margin: 0; font-size: 13px; color: var(--fw-ink-3); letter-spacing: -.01em; }
+.demo-video-showcase {
+  border-radius: 14px;
+  border: 1px solid var(--fw-rule);
+  box-shadow: 0 32px 80px -30px rgba(101,55,40,.30), 0 12px 30px -10px rgba(101,55,40,.18);
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  background: #0E0805;
+}
+.demo-video-showcase video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .lp-features-section { padding: 32px 80px 72px; position: relative; z-index: 1; }
 .lp-features-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px; }
 .lp-features-title { font-family: 'Geist',system-ui,sans-serif; font-weight: 600; font-size: 26px; letter-spacing: -.03em; color: var(--fw-ink); margin: 0; }
 .lp-tc { font-family: 'JetBrains Mono',monospace; font-size: 10.5px; letter-spacing: .04em; color: var(--fw-ink-3); font-variant-numeric: tabular-nums; text-transform: uppercase; }
-.lp-features-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.lp-features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
 .lp-feat-card { padding: 22px; border-radius: 12px; background: var(--fw-surface); border: 1px solid var(--fw-rule); display: flex; flex-direction: column; gap: 12px; }
 .lp-feat-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
 .lp-feat-title { font-family: 'Geist',system-ui,sans-serif; font-size: 15px; font-weight: 600; color: var(--fw-ink); letter-spacing: -.02em; }
 .lp-feat-body { font-size: 13.5px; line-height: 1.55; color: var(--fw-ink-2); margin: 0; }
-.lp-cta-section { padding: 16px 80px 72px; position: relative; z-index: 1; }
+.lp-cta-section { padding: 32px 80px 56px; position: relative; z-index: 1; }
 .lp-cta-box { position: relative; border-radius: 18px; overflow: hidden; background: linear-gradient(135deg, var(--fw-peach-deep) 0%, var(--fw-rust) 65%, #8B4625 100%); padding: 72px 56px; }
 .lp-cta-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 30%, rgba(255,242,220,.20), transparent 65%); pointer-events: none; }
 .lp-cta-content { position: relative; max-width: 620px; }
@@ -73,7 +89,7 @@
 .lp-cta-title { font-family: 'Geist',system-ui,sans-serif; font-weight: 600; font-size: 52px; line-height: 1.0; letter-spacing: -.04em; color: #FFF2DC; margin-top: 12px; text-shadow: 0 2px 12px rgba(0,0,0,.18); }
 .lp-cta-title .lp-italic { color: #FFEDD8; }
 .lp-cta-body { font-family: 'Geist',system-ui,sans-serif; font-size: 16px; line-height: 1.5; color: #FFEDD8; opacity: .9; margin-top: 16px; max-width: 480px; }
-.lp-cta-btns { display: inline-flex; gap: 10px; margin-top: 28px; }
+.lp-cta-btns { display: inline-flex; gap: 10px; margin-top: 44px; }
 .lp-cta-btn-primary { padding: 14px 22px; border-radius: 999px; border: none; background: #FFF2DC; color: #2A1810; font-family: 'Geist',system-ui,sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; letter-spacing: -.01em; }
 .lp-cta-btn-ghost { padding: 14px 18px; border-radius: 999px; border: 1px solid rgba(255,242,220,.4); background: transparent; color: #FFF2DC; font-family: 'Geist',system-ui,sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; letter-spacing: -.01em; text-decoration: none; }
 .lp-cta-btn-ghost:hover { background: rgba(255,242,220,.12); }
@@ -144,7 +160,7 @@
   .lp-nav { grid-template-columns: 1fr 1fr; }
   .lp-nav-links { display: none; }
   .lp-hero-title { font-size: 42px; }
-  .lp-features-grid { grid-template-columns: 1fr 1fr; }
+  .lp-features-grid { grid-template-columns: 1fr; }
   .lp-cta-title { font-size: 36px; }
   .demo-sidebar { display: none; }
   .demo-mode-card { grid-template-columns: 1fr; }

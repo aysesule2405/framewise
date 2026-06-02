@@ -11,6 +11,10 @@ var pendingSegments = [];
 var lastProgressSent = 0;
 var lastResumeAt = null;
 
+// Capture state
+var captureRecorder = null;
+var captureChunks = [];
+
 // Caption overlay state
 var captionOverlayEl = null;  // container div
 var captionTextEl = null;  // inner text div
@@ -50,32 +54,51 @@ function safeChrome(fn) {
 }
 
 // ── Video detection ────────────────────────────────────────────────────────────
+function detectPlatform(url) {
+  if (!url) return "generic";
+  try {
+    var host = new URL(url).hostname.replace(/^www\./, "");
+    if (host === "youtu.be" || host.endsWith("youtube.com")) return "youtube";
+    if (host === "vimeo.com" || host.endsWith(".vimeo.com")) return "vimeo";
+    if (host.endsWith("tiktok.com")) return "tiktok";
+    if (host.includes("kaltura") || host.includes("instructure.com")) return "canvas";
+  } catch {}
+  return "generic";
+}
+
 function safeNotifyBackground() {
   var url = window.location.href;
-  if (!url.includes("youtube.com/watch")) return;
-
-  var videoId = getYouTubeVideoId(url);
-  var title = document.title;
+  var isYouTube = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
   var video = document.querySelector("video");
+
+  // On non-YouTube pages only notify when there is a video element with a source
+  if (!isYouTube && (!video || !video.currentSrc)) return;
+
+  var videoKey = getPageVideoKey(url);
+  var title = document.title;
   var dur = video && Number.isFinite(video.duration) ? Math.floor(video.duration) : null;
+  var currentSrc = video ? (video.currentSrc || "") : "";
 
-  if (url === lastNotifiedUrl && videoId === lastVideoId && dur === null) return;
+  if (url === lastNotifiedUrl && videoKey === lastVideoId && dur === null) return;
   lastNotifiedUrl = url;
-  lastVideoId = videoId;
-
-  // re-init UI on video change
+  lastVideoId = videoKey;
 
   safeChrome(function () {
     chrome.runtime.sendMessage(
-      { type: "VIDEO_DETECTED", url: url, title: title, durationSeconds: dur, videoKey: videoId },
+      { type: "VIDEO_DETECTED", url: url, title: title, durationSeconds: dur, videoKey: videoKey, currentSrc: currentSrc, platform: detectPlatform(url) },
       function () { void chrome.runtime.lastError; }
     );
   });
 }
 
-function getYouTubeVideoId(url) {
+function getPageVideoKey(url) {
   try {
-    return new URL(url).searchParams.get("v") || url;
+    var parsed = new URL(url);
+    var v = parsed.searchParams.get("v");
+    if (v) return v;
+    var parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts[0] === "shorts" && parts[1]) return parts[1];
+    return url;
   } catch {
     return url;
   }
@@ -97,7 +120,7 @@ function initContentScript() {
     pageObserver = new MutationObserver(function () {
       if (!isContextAlive()) { teardown(); return; }
       removeLegacyPoseButton();
-      var currentId = getYouTubeVideoId(window.location.href);
+      var currentId = getPageVideoKey(window.location.href);
       if (window.location.href !== lastNotifiedUrl || currentId !== lastVideoId) scheduleNotify();
     });
     pageObserver.observe(document.body, { childList: true, subtree: true });
@@ -567,6 +590,234 @@ safeChrome(function () {
   });
 });
 
+// ── captureStream() recording ──────────────────────────────────────────────────
+function startCaptureAndUpload(options) {
+  var apiUrl = options.apiUrl;
+  var url = options.url || window.location.href;
+  var title = options.title || document.title;
+  var source = options.source || "generic";
+  var maxMs = (options.maxDuration || 300) * 1000;
+
+  var video = document.querySelector("video");
+  if (!video) {
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTURE_ERROR", error: "No video element found on this page." });
+    });
+    return;
+  }
+
+  var stream;
+  try {
+    stream = video.captureStream();
+  } catch (e) {
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTURE_ERROR", error: "Could not capture this video stream. It may be DRM-protected." });
+    });
+    return;
+  }
+
+  var mimeType = "video/webm";
+  try {
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+    else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+  } catch (e) {}
+
+  captureChunks = [];
+  var recorder;
+  try {
+    recorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 800000 });
+  } catch (e) {
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTURE_ERROR", error: "MediaRecorder error: " + e.message });
+    });
+    return;
+  }
+
+  captureRecorder = recorder;
+  var baseMime = mimeType.split(";")[0];
+
+  recorder.ondataavailable = function (e) {
+    if (e.data && e.data.size > 0) captureChunks.push(e.data);
+  };
+
+  recorder.onstop = function () {
+    var blob = new Blob(captureChunks, { type: baseMime });
+    captureChunks = [];
+    captureRecorder = null;
+    var durationSeconds = video ? (Math.floor(video.duration) || 0) : 0;
+
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTURE_UPLOADING" });
+    });
+
+    chrome.storage.local.get("fw_token", function (result) {
+      var token = result.fw_token;
+      if (!token) {
+        safeChrome(function () {
+          chrome.runtime.sendMessage({ type: "CAPTURE_ERROR", error: "Not signed in to Framewise." });
+        });
+        return;
+      }
+
+      var formData = new FormData();
+      formData.append("file", blob, "capture.webm");
+      formData.append("url", url);
+      formData.append("title", title);
+      formData.append("source", source);
+      if (durationSeconds) formData.append("durationSeconds", String(durationSeconds));
+
+      fetch(apiUrl + "/videos/upload-capture", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        body: formData,
+      })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || "Upload failed (" + res.status + ")"); });
+          return res.json();
+        })
+        .then(function (data) {
+          safeChrome(function () {
+            chrome.runtime.sendMessage({ type: "CAPTURE_DONE", jobId: data.jobId, videoId: data.videoId });
+          });
+        })
+        .catch(function (err) {
+          safeChrome(function () {
+            chrome.runtime.sendMessage({ type: "CAPTURE_ERROR", error: err.message || "Upload failed." });
+          });
+        });
+    });
+  };
+
+  safeChrome(function () {
+    chrome.runtime.sendMessage({ type: "CAPTURE_STARTED" });
+  });
+
+  recorder.start(5000); // request chunks every 5s to keep memory bounded
+
+  var timeoutId = setTimeout(function () {
+    if (captureRecorder && captureRecorder.state === "recording") captureRecorder.stop();
+  }, maxMs);
+
+  video.addEventListener("ended", function onEnded() {
+    video.removeEventListener("ended", onEnded);
+    clearTimeout(timeoutId);
+    if (captureRecorder && captureRecorder.state === "recording") captureRecorder.stop();
+  }, { once: true });
+}
+
+function stopCapture() {
+  if (captureRecorder && captureRecorder.state === "recording") captureRecorder.stop();
+}
+
+// Records the current video and uploads the blob to /:videoId/captions/generate-capture
+// for ElevenLabs STT — shorter default duration than the full analysis capture.
+function startCaptionCapture(options) {
+  var apiUrl = options.apiUrl;
+  var videoId = options.videoId;
+  var maxMs = (options.maxDuration || 180) * 1000;
+
+  var video = document.querySelector("video");
+  if (!video) {
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_ERROR", error: "No video element found on this page." });
+    });
+    return;
+  }
+
+  var stream;
+  try {
+    stream = video.captureStream();
+  } catch (e) {
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_ERROR", error: "Could not capture this video stream. It may be DRM-protected." });
+    });
+    return;
+  }
+
+  var mimeType = "video/webm";
+  try {
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) mimeType = "video/webm;codecs=vp9,opus";
+    else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) mimeType = "video/webm;codecs=vp8,opus";
+  } catch (e) {}
+
+  captureChunks = [];
+  var recorder;
+  try {
+    recorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 800000 });
+  } catch (e) {
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_ERROR", error: "MediaRecorder error: " + e.message });
+    });
+    return;
+  }
+
+  captureRecorder = recorder;
+  var baseMime = mimeType.split(";")[0];
+
+  recorder.ondataavailable = function (e) {
+    if (e.data && e.data.size > 0) captureChunks.push(e.data);
+  };
+
+  recorder.onstop = function () {
+    var blob = new Blob(captureChunks, { type: baseMime });
+    captureChunks = [];
+    captureRecorder = null;
+
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_UPLOADING" });
+    });
+
+    chrome.storage.local.get("fw_token", function (result) {
+      var token = result.fw_token;
+      if (!token) {
+        safeChrome(function () {
+          chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_ERROR", error: "Not signed in to Framewise." });
+        });
+        return;
+      }
+
+      var formData = new FormData();
+      formData.append("file", blob, "capture.webm");
+
+      fetch(apiUrl + "/videos/" + videoId + "/captions/generate-capture", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        body: formData,
+      })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || "Upload failed (" + res.status + ")"); });
+          return res.json();
+        })
+        .then(function (data) {
+          safeChrome(function () {
+            chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_DONE", count: data.count });
+          });
+        })
+        .catch(function (err) {
+          safeChrome(function () {
+            chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_ERROR", error: err.message || "Upload failed." });
+          });
+        });
+    });
+  };
+
+  safeChrome(function () {
+    chrome.runtime.sendMessage({ type: "CAPTION_CAPTURE_STARTED" });
+  });
+
+  recorder.start(5000);
+
+  var timeoutId = setTimeout(function () {
+    if (captureRecorder && captureRecorder.state === "recording") captureRecorder.stop();
+  }, maxMs);
+
+  video.addEventListener("ended", function onEnded() {
+    video.removeEventListener("ended", onEnded);
+    clearTimeout(timeoutId);
+    if (captureRecorder && captureRecorder.state === "recording") captureRecorder.stop();
+  }, { once: true });
+}
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message) return;
     
@@ -583,6 +834,21 @@ safeChrome(function () {
       } else {
         setCaptionOverlayState(message.captions || [], message.active, message.translated);
       }
+      sendResponse({ ok: true });
+    }
+
+    if (message.type === "START_CAPTURE") {
+      startCaptureAndUpload(message);
+      sendResponse({ ok: true });
+    }
+
+    if (message.type === "START_CAPTION_CAPTURE") {
+      startCaptionCapture(message);
+      sendResponse({ ok: true });
+    }
+
+    if (message.type === "STOP_CAPTURE") {
+      stopCapture();
       sendResponse({ ok: true });
     }
   });

@@ -5,9 +5,10 @@ const Collection = require("../models/Collection");
 const ChatMessage = require("../models/ChatMessage");
 const Note = require("../models/Note");
 const Bookmark = require("../models/Bookmark");
-const { analyzeWithGemini, analyzeDanceWithGemini, correctCaptionsWithGemini, generateQuizWithGemini, translateCaptionsWithGemini } = require("../services/geminiService");
+const { analyzeWithGemini, analyzeWithGeminiFile, analyzeDanceWithGemini, analyzeDanceWithGeminiFile, correctCaptionsWithGemini, generateQuizWithGemini, translateCaptionsWithGemini } = require("../services/geminiService");
+const { receiveAndUpload, directDownloadAndUpload } = require("../services/videoUploadService");
 const { generateCaptionsFromYouTube } = require("../services/captionService");
-const { generateCaptionsFromAudio } = require("../services/audioTranscriptionService");
+const { generateCaptionsFromAudio, generateCaptionsFromBuffer } = require("../services/audioTranscriptionService");
 const { STATUS, createJob, updateJob } = require("../queue/jobQueue");
 const { logAiRequest } = require("../services/aiLogger");
 
@@ -55,6 +56,30 @@ function normalizeYouTubeUrl(url) {
   } catch {
     return url;
   }
+}
+
+// Returns true for any YouTube URL variant (watch, shorts, youtu.be)
+function isYouTubeUrl(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host === "youtu.be" || host.endsWith("youtube.com");
+  } catch {
+    return false;
+  }
+}
+
+// Derives the source enum value from a URL or an explicit source hint
+function resolveSource(url, hint) {
+  if (hint && hint !== "youtube") return hint; // trust explicit non-youtube hint
+  if (isYouTubeUrl(url)) {
+    try {
+      const pathname = new URL(url).pathname;
+      return pathname.startsWith("/shorts/") ? "youtube-shorts" : "youtube";
+    } catch {
+      return "youtube";
+    }
+  }
+  return hint || "generic";
 }
 
 function segmentSearchText(segments) {
@@ -118,13 +143,47 @@ async function runAnalysis(video, durationSeconds) {
   video.analysisVersion = ANALYSIS_VERSION;
   await video.save();
 
-  const { segments: rawSegments, title, transcript } = await analyzeWithGemini(video.url, {
-    durationSeconds: video.durationSeconds,
-  });
+  const isYouTube = video.source === "youtube" || video.source === "youtube-shorts";
+  let analysisResult;
+
+  if (isYouTube) {
+    // Existing path: Gemini fetches the YouTube URL directly
+    const normalizedUrl = normalizeYouTubeUrl(video.url);
+    analysisResult = await analyzeWithGemini(normalizedUrl, { durationSeconds: video.durationSeconds });
+  } else if (video.geminiFileUri) {
+    // Captured video already uploaded to Gemini File API by the extension
+    analysisResult = await analyzeWithGeminiFile(video.geminiFileUri, {
+      durationSeconds: video.durationSeconds,
+      mimeType: video.geminiFileMimeType || "video/webm",
+    });
+  } else if (video.url && !video.url.startsWith("captured:")) {
+    // Try to download the CDN URL server-side and upload to Gemini
+    try {
+      const fileUri = await directDownloadAndUpload(video.url);
+      video.geminiFileUri = fileUri;
+      video.geminiFileUriExpires = new Date(Date.now() + 47 * 60 * 60 * 1000);
+      await video.save();
+      analysisResult = await analyzeWithGeminiFile(fileUri, { durationSeconds: video.durationSeconds });
+    } catch (dlErr) {
+      video.analysisStatus = "error";
+      await video.save();
+      if (dlErr.message === "VIDEO_URL_AUTH_REQUIRED") {
+        throw new Error("This video requires authentication. Use the Capture button in the extension to analyze it.");
+      }
+      throw new Error(`Could not download video for analysis: ${dlErr.message}`);
+    }
+  } else {
+    video.analysisStatus = "error";
+    await video.save();
+    throw new Error("No video source available for analysis. Please capture the video using the extension.");
+  }
+
+  const { segments: rawSegments, title, transcript } = analysisResult;
+  const platformLabel = isYouTube ? "YouTube video" : "video";
   if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
     video.analysisStatus = "error";
     await video.save();
-    throw new Error("Gemini could not access or segment this YouTube video.");
+    throw new Error(`Gemini could not access or segment this ${platformLabel}.`);
   }
 
   await Segment.deleteMany({ videoId: video._id });
@@ -180,10 +239,14 @@ function isQuotaError(err) {
 
 const analyzeVideo = async (req, res, next) => {
   try {
-    const { source = "youtube", force = false } = req.body;
+    const { force = false } = req.body;
     const durationSeconds = Number(req.body.durationSeconds) || undefined;
-    const url = normalizeYouTubeUrl(req.body.url);
-    if (!url) return res.status(400).json({ error: "url is required" });
+    const rawUrl = req.body.url;
+    if (!rawUrl) return res.status(400).json({ error: "url is required" });
+
+    // Normalize YouTube URLs; leave all other URLs as-is
+    const url = isYouTubeUrl(rawUrl) ? normalizeYouTubeUrl(rawUrl) : rawUrl;
+    const source = resolveSource(rawUrl, req.body.source);
 
     // Serve from cache immediately
     const existing = await Video.findOne({ url, userId: req.user.id, analysisStatus: "done" });
@@ -240,8 +303,21 @@ const analyzeDance = async (req, res, next) => {
       await video.save();
     }
 
-    logAiRequest("request.dance", { userId: req.user.id, videoId: video._id, durationSeconds, force: !!req.body.force });
-    const { segments: rawSegments } = await analyzeDanceWithGemini(video.url, { durationSeconds });
+    logAiRequest("request.dance", { userId: req.user.id, videoId: video._id, durationSeconds, source: video.source, force: !!req.body.force });
+
+    const isYouTube = video.source === "youtube" || video.source === "youtube-shorts";
+    let danceResult;
+    if (isYouTube) {
+      danceResult = await analyzeDanceWithGemini(normalizeYouTubeUrl(video.url), { durationSeconds });
+    } else if (video.geminiFileUri) {
+      danceResult = await analyzeDanceWithGeminiFile(video.geminiFileUri, {
+        durationSeconds,
+        mimeType: video.geminiFileMimeType || "video/webm",
+      });
+    } else {
+      return res.status(400).json({ error: "Dance analysis for this platform requires the video to be captured first. Use the extension to re-capture the video." });
+    }
+    const { segments: rawSegments } = danceResult;
     if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
       return res.status(502).json({ error: "Gemini could not detect teachable dance moves in this video." });
     }
@@ -258,6 +334,8 @@ const analyzeDance = async (req, res, next) => {
         practiceTips: Array.isArray(s.practiceTips) ? s.practiceTips.map(String).slice(0, 4) : [],
         mirrorTip: String(s.mirrorTip || ""),
         difficulty: ["easy", "medium", "hard"].includes(s.difficulty) ? s.difficulty : "medium",
+        moveName: s.moveName && s.moveName !== "null" ? String(s.moveName).trim() : null,
+        moveCategory: ["footwork", "arm_isolation", "full_body", "upper_body", "floor_work", "freestyle"].includes(s.moveCategory) ? s.moveCategory : null,
         ...clampTimeRange(s.startTime, s.endTime, video.durationSeconds),
       })).filter((segment) => isValidRange(segment, video.durationSeconds))
     );
@@ -690,8 +768,126 @@ const importTranscript = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// POST /api/videos/upload-capture
+// Receives a video blob captured by the extension (captureStream or tabCapture),
+// uploads it to the Gemini File API, and queues an analysis job.
+const uploadCaptureAndAnalyze = async (req, res, next) => {
+  try {
+    const rawUrl = req.body.url || `captured:${Date.now()}`;
+    const source = resolveSource(rawUrl, req.body.source) || "generic";
+    const durationSeconds = Number(req.body.durationSeconds) || undefined;
+
+    let fileUri, fileUriExpires, mimeType;
+
+    if (req.file) {
+      // captureStream / tabCapture blob path
+      mimeType = req.file.mimetype || "video/webm";
+      fileUri = await receiveAndUpload(req.file.buffer, mimeType);
+      fileUriExpires = new Date(Date.now() + 47 * 60 * 60 * 1000);
+    } else if (req.body.srcUrl) {
+      // Direct CDN download — fast path for Vimeo, Canvas, Loom, etc.
+      mimeType = req.body.mimeType || "video/mp4";
+      try {
+        fileUri = await directDownloadAndUpload(req.body.srcUrl, mimeType);
+        fileUriExpires = new Date(Date.now() + 47 * 60 * 60 * 1000);
+      } catch (dlErr) {
+        const code = dlErr.message;
+        if (code === "VIDEO_URL_AUTH_REQUIRED") return res.status(403).json({ error: code });
+        if (code === "VIDEO_URL_NOT_FOUND") return res.status(404).json({ error: code });
+        return res.status(502).json({ error: code });
+      }
+    } else {
+      return res.status(400).json({ error: "No video file or srcUrl received" });
+    }
+
+    // Upsert video document
+    let video = await Video.findOne({ url: rawUrl, userId: req.user.id });
+    if (video) {
+      video.geminiFileUri = fileUri;
+      video.geminiFileUriExpires = fileUriExpires;
+      video.geminiFileMimeType = mimeType;
+      if (durationSeconds) video.durationSeconds = durationSeconds;
+      video.analysisStatus = "pending";
+      await video.save();
+    } else {
+      video = await Video.create({
+        userId: req.user.id,
+        url: rawUrl,
+        source,
+        title: req.body.title || "Captured Video",
+        geminiFileUri: fileUri,
+        geminiFileUriExpires: fileUriExpires,
+        geminiFileMimeType: mimeType,
+        durationSeconds,
+        analysisStatus: "pending",
+      });
+    }
+
+    logAiRequest("queue.upload-capture", { userId: req.user.id, videoId: video._id, source, durationSeconds });
+
+    const job = createJob("analyze", { videoId: video._id.toString(), durationSeconds });
+    res.json({ jobId: job.id, videoId: video._id, status: job.status });
+
+    setImmediate(async () => {
+      updateJob(job.id, { status: STATUS.PROCESSING, message: "Gemini is reading the video…", progress: 10 });
+      try {
+        const { video: updatedVideo, segments } = await runAnalysis(video, durationSeconds);
+        updateJob(job.id, {
+          status: STATUS.COMPLETED,
+          progress: 100,
+          message: "Done",
+          result: { videoId: updatedVideo._id.toString(), segmentCount: segments.length },
+        });
+      } catch (err) {
+        const userMessage = formatAnalysisError(err);
+        updateJob(job.id, { status: STATUS.FAILED, message: userMessage, error: userMessage });
+        console.error("[uploadCaptureAndAnalyze job]", err.message);
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/videos/:videoId/captions/generate-capture
+// Receives the recorded video blob and transcribes with ElevenLabs.
+const generateCaptionsCaptured = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No video file received" });
+    const video = await Video.findOne({ _id: req.params.videoId, userId: req.user.id });
+    if (!video) return res.status(404).json({ error: "Video not found" });
+
+    const mimeType = req.file.mimetype || "video/webm";
+    logAiRequest("request.captions.capture", { userId: req.user.id, videoId: video._id, mimeType, size: req.file.size });
+
+    const cues = await generateCaptionsFromBuffer(req.file.buffer, mimeType);
+
+    await Caption.deleteMany({ videoId: video._id, userId: req.user.id });
+    const captions = await Caption.insertMany(
+      cues
+        .map((c) => ({
+          videoId: video._id,
+          userId: req.user.id,
+          ...clampTimeRange(c.startTime, c.endTime, video.durationSeconds),
+          text: c.text,
+          correctedText: c.text,
+          status: "draft",
+        }))
+        .filter((c) => isValidRange(c, video.durationSeconds))
+    );
+
+    res.json({ captions, count: captions.length });
+  } catch (err) {
+    if (err.message?.includes("not configured") || err.message?.includes("ElevenLabs")) {
+      return res.status(503).json({ error: err.message });
+    }
+    res.status(isQuotaError(err) ? 429 : 500).json({ error: formatAnalysisError(err) });
+  }
+};
+
 module.exports = {
   analyzeVideo,
+  uploadCaptureAndAnalyze,
   analyzeDance,
   listVideos,
   searchVideos,
@@ -709,4 +905,5 @@ module.exports = {
   generateQuiz,
   saveCaptions,
   importTranscript,
+  generateCaptionsCaptured,
 };

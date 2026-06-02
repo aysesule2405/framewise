@@ -125,4 +125,22 @@ async function generateCaptionsFromAudio(videoUrl) {
   return buildCues(items);
 }
 
-module.exports = { generateCaptionsFromAudio };
+async function generateCaptionsFromBuffer(buffer, mimeType = "video/webm") {
+  const result = await transcribeWithElevenLabs(buffer, mimeType);
+
+  const items = (result.words || [])
+    .filter((word) => word.type === "word" && word.text?.trim())
+    .map((word) => ({
+      text: word.text.trim(),
+      start: Number(word.start) || 0,
+      duration: Math.max(0.05, (Number(word.end) || 0) - (Number(word.start) || 0)),
+    }));
+
+  if (!items.length) {
+    throw new Error("No speech detected in this video.");
+  }
+
+  return buildCues(items);
+}
+
+module.exports = { generateCaptionsFromAudio, generateCaptionsFromBuffer };

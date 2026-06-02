@@ -30,6 +30,8 @@
 
 Framewise is a full-stack AI video assistant built around a simple idea: videos should be searchable, conversational, captioned, and practice-ready. It has two connected surfaces — a **React web app** and a **Chrome extension** — that share the same backend, MongoDB database, auth token, and AI pipeline.
 
+The extension works on **YouTube, YouTube Shorts, Vimeo, TikTok, Canvas/Kaltura, and any page with a `<video>` element**. YouTube and Shorts are analyzed directly by Gemini; other platforms are captured via `captureStream()` or the Chrome tabCapture API and uploaded to the Gemini File API.
+
 ## Hackathon Recognition
 
 Framewise started at **HackHCC: Code Runners Hackathon**, where it won:
@@ -143,12 +145,17 @@ Devpost: [Framewise on Devpost](https://devpost.com/software/framwise)
 ### Chrome Extension
 
 **Auto-detection**
-- Content script watches for YouTube watch-page navigation and fires immediately
-- On panel open, the currently active YouTube tab is detected instantly (via `chrome.storage.session` with active-tab fallback) — no reload required
-- Video thumbnail from `img.youtube.com` shown in the strip alongside title
-- "No video" empty state with an **Open YouTube** button when no watch page is active
+- Content script runs on `<all_urls>` — detects any `<video>` element on any page
+- YouTube and Shorts: detected immediately via URL; thumbnail loaded from `img.youtube.com`; analyzed directly by Gemini
+- Other platforms (Vimeo, TikTok, Canvas, generic): detected when a `<video>` starts playing; **Capture & Analyze** button appears in the panel
+- On panel open, the currently active tab is detected instantly (via `chrome.storage.session` with active-tab fallback) — no reload required
 - Background service worker calls `/videos/lookup` to check for saved analysis; auto-loads the timeline if found
 - Title-based mode detection runs immediately on video detection — dance vs study vs general — reorders sections and swaps chat chips without an API call
+
+**Capture & Analyze (non-YouTube)**
+- For Vimeo, Canvas, Loom, and generic video pages: content script captures `video.captureStream()`, records with MediaRecorder (WebM/VP9, 800kbps), uploads directly to the backend Gemini File API pipeline
+- For TikTok and DRM-protected content: service worker acquires a `chrome.tabCapture` stream ID and passes it to an offscreen document, which records the tab and uploads the blob
+- Both paths reuse the same upload endpoint (`POST /api/videos/upload-capture`) and async job queue as YouTube analysis
 
 **Timeline tab**
 - Full segment list with search/filter, active segment auto-highlight, and smooth scroll
@@ -198,7 +205,7 @@ Devpost: [Framewise on Devpost](https://devpost.com/software/framwise)
 | Backend | Node.js, Express, Mongoose |
 | Database | MongoDB Atlas |
 | Auth | JWT (email/password) + Google OAuth |
-| AI — video analysis & chat | Google Gemini 2.5 (`@google/generative-ai`) |
+| AI — video analysis & chat | Google Gemini 2.5 (`@google/generative-ai`) + Gemini File API for non-YouTube uploads |
 | AI — voice & STT | ElevenLabs API |
 | Pose tracking — extension | TensorFlow.js + MoveNet SINGLEPOSE_LIGHTNING, WASM backend (non-threaded, MV3 CSP-safe) |
 | Pose tracking — web app dancer | TensorFlow.js + MoveNet MULTIPOSE_LIGHTNING (WebGL), `getDisplayMedia` screen capture |
@@ -217,14 +224,19 @@ flowchart LR
   Extension[Chrome Extension] --> API
   API --> Mongo[(MongoDB Atlas)]
   API --> Gemini[Gemini AI]
+  API --> GeminiFile[Gemini File API]
   API --> Eleven[ElevenLabs]
   Web --> Player[YouTube Player]
   Extension --> YouTube[YouTube Page]
+  Extension --> OtherVideo[Vimeo · TikTok · Canvas · Generic]
+  OtherVideo -->|captureStream / tabCapture| API
   Web --> Pose[TensorFlow.js / MoveNet]
   Extension --> Pose
 ```
 
 Both entry points use the same auth model and API contracts. A video analyzed through the extension appears in the web library, and a video opened from the library can be continued through the extension.
+
+YouTube and Shorts are sent as native URLs to Gemini. All other platforms are recorded as WebM blobs and uploaded to the Gemini File API, which returns a `file.uri` used in the same analysis prompts.
 
 ---
 
@@ -239,7 +251,7 @@ framewise/
 │   │   ├── models/          User · Video · Segment · ChatMessage · Caption · Note · Bookmark · Collection
 │   │   ├── routes/          auth · video · chat · collection · job
 │   │   ├── controllers/
-│   │   ├── services/        geminiService · captionService · elevenLabsService · audioTranscriptionService
+│   │   ├── services/        geminiService · videoUploadService · captionService · elevenLabsService · audioTranscriptionService
 │   │   ├── middleware/       auth · rateLimiter · timeout · validateObjectId
 │   │   └── queue/           in-memory async job queue (no Redis)
 │   ├── .env.example
@@ -263,14 +275,17 @@ framewise/
 │   ├── icons/
 │   ├── dist/content.js      Vite-built content script
 │   └── src/
-│       ├── background.js    service worker — YouTube detection, session storage, progress sync
-│       ├── content.js       YouTube page script — seek bar markers, caption overlay, video progress
+│       ├── background.js    service worker — video detection (all platforms), session storage, tabCapture, progress sync
+│       ├── content.js       page script — seek bar markers, caption overlay, video progress, captureStream() recording
 │       ├── config.js        FW_API + FW_APP URLs (update for production)
+│       ├── offscreen/
+│       │   ├── offscreen.html   offscreen document (MV3) — loaded for tabCapture on TikTok/DRM
+│       │   └── offscreen.js     tab MediaStream recording + upload via Gemini File API
 │       └── panel/
 │           ├── panel.html   side panel UI + all inline CSS
-│           └── panel.js     all panel logic — auth, chat, timeline, captions, pose tracking
+│           └── panel.js     all panel logic — auth, chat, timeline, captions, capture UI, pose tracking
 │
-└── pitch/                   PITCH_DECK.md · SPEAKER_SCRIPT.md · DEMO_CHECKLIST.md
+└── .claude/                 MULTIPLATFORM_PLAN.md · TASKS.md
 ```
 
 ---
@@ -433,6 +448,9 @@ db.videos.createIndex(
 
 ## Challenges & Technical Notes
 
+**Multi-platform video capture**
+Non-YouTube video reaches the backend as a blob, not a URL. The pipeline branches by platform: YouTube/Shorts pass the URL directly to Gemini; everything else goes through one of two capture paths. `video.captureStream()` works for Vimeo, Canvas, and generic pages — the content script records a MediaRecorder WebM and uploads it to `POST /api/videos/upload-capture`, which calls the Gemini File API. TikTok uses Widevine DRM, which blocks `captureStream()` at the browser level; those tabs are recorded via `chrome.tabCapture.getMediaStreamId()` in the service worker, then passed to an Offscreen document (MV3) that calls `getUserMedia` with `chromeMediaSource: "tab"` and does the same MediaRecorder upload. Both capture paths reuse the same backend endpoint and async job queue.
+
 **Gemini MV3 rate limiting**
 Free-tier Gemini has a hard 15 RPM cap. The app uses two layers: a global in-process RPM gate (`geminiService.js`) and a per-user rate limiter (15 req/min) on AI routes. `withRetry` handles 429, 503, and network-level `TypeError: fetch failed` errors with exponential backoff.
 
@@ -471,11 +489,12 @@ The `detectedMode` field is set during analysis based on heuristic signals: titl
 ### Videos & Jobs
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/videos/analyze` | Start analysis (returns `{ jobId }`) |
+| POST | `/api/videos/analyze` | Start YouTube/Shorts analysis (returns `{ jobId }`) |
+| POST | `/api/videos/upload-capture` | Upload captured video blob for analysis (returns `{ jobId }`) |
 | GET | `/api/jobs/:jobId` | Poll job status |
 | GET | `/api/videos` | Library list |
 | GET | `/api/videos/search` | Search by title or segment text |
-| GET | `/api/videos/lookup` | Extension lookup by YouTube URL |
+| GET | `/api/videos/lookup` | Extension lookup by URL |
 | GET | `/api/videos/:id` | Get one video |
 | PATCH | `/api/videos/:id/mode` | Set mode override |
 | GET | `/api/videos/:id/segments` | Topic or dance segments |
@@ -489,7 +508,8 @@ The `detectedMode` field is set during analysis based on heuristic signals: titl
 | GET | `/api/videos/:id/captions` | Get captions |
 | PUT | `/api/videos/:id/captions` | Save edited captions |
 | POST | `.../captions/generate` | YouTube transcript |
-| POST | `.../captions/generate-audio` | ElevenLabs STT |
+| POST | `.../captions/generate-audio` | ElevenLabs STT from audio |
+| POST | `.../captions/generate-capture` | ElevenLabs STT from captured video blob |
 | POST | `.../captions/correct` | Gemini correction |
 | POST | `.../captions/translate` | Translate |
 | POST | `/api/videos/:id/transcript` | Import raw transcript |
@@ -513,7 +533,8 @@ The `detectedMode` field is set during analysis based on heuristic signals: titl
 
 ## Known Limitations
 
-- **YouTube only** — file upload and other video platforms are not yet supported.
+- **Capture quality** — `captureStream()` and tabCapture record at 800kbps. Very long videos (>10 min) can produce large blobs. The 300-second max capture window means a 5-minute segment is the practical analysis unit for non-YouTube content.
+- **TikTok tabCapture** — TikTok uses Widevine DRM, so the content script's `captureStream()` is blocked. The extension routes TikTok through `chrome.tabCapture` via the Offscreen API instead. This requires Chrome 109+ and the user to have the side panel open in the same window as the TikTok tab.
 - **Dance analysis is synchronous** — only the main video analysis runs as an async job. Dance, captions, and STT still block the request; they should move to the job queue before a production deploy.
 - **Extension production config** — `extension/src/config.js` is hardcoded to `localhost`. Update `FW_API` and `FW_APP` before building for the Chrome Web Store.
 - **Dancer tracking requires tab screen share** — `getDisplayMedia` must be set to share the browser tab (not a window or the whole screen). Sharing the whole screen produces incorrect crop coordinates because `getBoundingClientRect()` is viewport-relative, not screen-relative.

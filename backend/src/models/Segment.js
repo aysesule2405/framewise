@@ -11,6 +11,8 @@ const segmentSchema = new mongoose.Schema(
     practiceTips: [{ type: String }],
     mirrorTip:    { type: String },
     difficulty:   { type: String, enum: ["easy", "medium", "hard"] },
+    moveName:     { type: String, default: null },
+    moveCategory: { type: String, enum: ["footwork", "arm_isolation", "full_body", "upper_body", "floor_work", "freestyle"], default: null },
     startTime: { type: Number, required: true }, // seconds
     endTime:   { type: Number, required: true },
   },

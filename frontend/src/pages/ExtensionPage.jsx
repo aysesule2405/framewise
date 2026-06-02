@@ -34,11 +34,11 @@ const STEPS = [
     n: "03",
     icon: "youtube",
     tone: "peach",
-    title: "Open any YouTube video",
-    body: "Navigate to a YouTube video in Chrome. Click the Framewise puzzle-piece icon in your toolbar to open the side panel.",
+    title: "Open a video — any platform",
+    body: "Navigate to a video in Chrome. YouTube and Shorts work natively. For Vimeo, TikTok, Canvas, or any page with a video player, click Capture & Analyze in the side panel.",
     steps: [
-      { label: "Open", note: "any YouTube video" },
-      { label: "Click", note: "the Framewise icon in your Chrome toolbar" },
+      { label: "YouTube", note: "opens automatically — panel detects it instantly" },
+      { label: "Other", note: "open any page with a video, then click Capture & Analyze" },
       { label: "Side panel", note: "opens — you're ready" },
     ],
   },
@@ -47,22 +47,22 @@ const STEPS = [
     icon: "analyze",
     tone: "rust",
     title: "Analyze your first video",
-    body: "Paste the URL into the web app to analyze it, or click Analyze in the extension panel. The timeline auto-loads next time you open the same video.",
+    body: "YouTube? click Analyze. Any other platform? click Capture & Analyze — the extension records the tab and sends it to Gemini. The timeline auto-loads next time.",
     steps: [
-      { label: "Option A", note: "analyze from the web app Dashboard" },
-      { label: "Option B", note: "type the URL into the extension and click Analyze" },
+      { label: "YouTube", note: "click Analyze — Gemini processes it directly" },
+      { label: "Other", note: "click Capture & Analyze — records the playing video" },
       { label: "Done", note: "timeline, chat, and captions are ready" },
     ],
   },
 ];
 
 const FEATURES = [
-  { icon: "topics",   tone: "rust",  label: "Topic timeline",   desc: "Auto-loaded chapter list. Click any segment to jump the video." },
-  { icon: "chat",     tone: "sage",  label: "Chat with video",  desc: "Ask anything, get timestamped answers from Gemini." },
-  { icon: "cc",       tone: "peach", label: "Caption injection", desc: "Framewise captions overlay timed to playback inside YouTube." },
-  { icon: "mic",      tone: "rust",  label: "Voice replies",    desc: "ElevenLabs reads every chat answer aloud while you watch." },
-  { icon: "practice", tone: "sage",  label: "Speed controls",   desc: "0.5× to 2× playback with one tap — great for dance learning." },
-  { icon: "bookmark", tone: "peach", label: "Bookmarks & notes", desc: "Save timestamps and quick notes synced to your library." },
+  { icon: "topics",   tone: "rust",  label: "Topic timeline",      desc: "Auto-loaded chapter list. Click any segment to jump the video." },
+  { icon: "chat",     tone: "sage",  label: "Chat with video",     desc: "Ask anything, get timestamped answers from Gemini." },
+  { icon: "cc",       tone: "peach", label: "Caption injection",   desc: "Framewise captions overlay timed to playback — on YouTube or any captured video." },
+  { icon: "mic",      tone: "rust",  label: "Voice replies",       desc: "ElevenLabs reads every chat answer aloud while you watch." },
+  { icon: "youtube",  tone: "sage",  label: "Multi-platform",      desc: "YouTube, Vimeo, TikTok, Canvas — Capture & Analyze records any tab Gemini can't reach directly." },
+  { icon: "bookmark", tone: "peach", label: "Bookmarks & notes",   desc: "Save timestamps and quick notes synced to your library." },
 ];
 
 export default function ExtensionPage() {
@@ -109,23 +109,25 @@ export default function ExtensionPage() {
 
       {/* Hero */}
       <section className="ep-hero">
-        <div className="ep-hero-badge">
-          <Icon name="extension" size={12} style={{ color: "var(--fw-rust)" }} />
-          <span>CHROME EXTENSION · MANIFEST V3</span>
-        </div>
-        <h1 className="ep-hero-title">
-          Your YouTube tab,<br />
-          <em className="ep-italic">annotated.</em>
-        </h1>
-        <p className="ep-hero-sub">
-          Timeline, chat, captions, and practice mode — right inside YouTube.
-          Four steps and you're watching smarter.
-        </p>
-        <div className="ep-hero-actions">
-          <button className="ep-cta-btn" onClick={() => navigate(user ? "/app" : "/login?mode=register")}>
-            {user ? "Open library →" : "Create account first →"}
-          </button>
-          <a className="lp-nav-signin ep-scroll-link" href="#steps">See setup steps ↓</a>
+        <div className="ep-hero-text">
+          <div className="ep-hero-badge">
+            <FramewiseMark size={14} variant="outline-gradient" />
+            <span>CHROME EXTENSION · MANIFEST V3</span>
+          </div>
+          <h1 className="ep-hero-title">
+            Any video tab,<br />
+            <em className="ep-italic">annotated.</em>
+          </h1>
+          <p className="ep-hero-sub">
+            Timeline, chat, captions, and practice mode — on YouTube, Vimeo, TikTok, Canvas, and more.
+            Four steps and you're watching smarter.
+          </p>
+          <div className="ep-hero-actions">
+            <button className="ep-cta-btn" onClick={() => navigate(user ? "/app" : "/login?mode=register")}>
+              {user ? "Open library →" : "Create account first →"}
+            </button>
+            <a className="lp-nav-signin ep-scroll-link" href="#steps">See setup steps ↓</a>
+          </div>
         </div>
 
         {/* Filmstrip preview of the panel */}
@@ -242,16 +244,19 @@ export default function ExtensionPage() {
       {/* CTA footer */}
       <section className="ep-footer-cta">
         <div className="ep-footer-filmstrip">
-          {Array.from({ length: 18 }).map((_, i) => (
+          {Array.from({ length: 120 }).map((_, i) => (
             <span key={i} className="ep-filmstrip-hole" />
           ))}
         </div>
         <div className="ep-footer-cta-body">
-          <p className="ep-eyebrow" style={{ marginBottom: 10 }}>— READY?</p>
+          <p className="ep-eyebrow" style={{ marginBottom: 28 }}>— READY?</p>
           <h2 className="ep-cta-title">
             Start with a video.<br />
             <em className="ep-italic">See the difference.</em>
           </h2>
+          <p className="ep-cta-sub">
+            Free to use. Open any video and framewise builds your study layer in seconds.
+          </p>
           <div className="ep-cta-row">
             <button className="ep-cta-btn" onClick={() => navigate(user ? "/app" : "/login?mode=register")}>
               {user ? "Go to my library →" : "Create free account →"}
@@ -260,7 +265,7 @@ export default function ExtensionPage() {
           </div>
         </div>
         <div className="ep-footer-filmstrip">
-          {Array.from({ length: 18 }).map((_, i) => (
+          {Array.from({ length: 120 }).map((_, i) => (
             <span key={i} className="ep-filmstrip-hole" />
           ))}
         </div>

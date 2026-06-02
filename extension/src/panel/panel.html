@@ -293,6 +293,57 @@
     #analyze-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
     #analyze-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
+    /* ── Capture button ── */
+    #capture-row { padding: 0 16px 8px; display: none; }
+    #capture-btn {
+      width: 100%;
+      padding: 9px 16px;
+      border: 1.5px dashed var(--fw-sage);
+      border-radius: 10px;
+      background: var(--fw-sage-soft);
+      color: var(--fw-sage);
+      font-family: 'Geist', system-ui, sans-serif;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity .12s, transform .1s;
+      letter-spacing: -.01em;
+    }
+    #capture-btn:hover { opacity: .85; transform: translateY(-1px); }
+    #capture-btn:active { transform: translateY(0); }
+    #capture-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    #capture-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    #capture-status {
+      display: none;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: var(--fw-surface);
+      border: 1px solid var(--fw-rule);
+      border-radius: 7px;
+      font-size: 11px;
+      color: var(--fw-ink-3);
+      text-align: center;
+      line-height: 1.5;
+    }
+    #capture-stop-btn {
+      display: none;
+      margin-top: 6px;
+      width: 100%;
+      padding: 6px;
+      background: transparent;
+      border: 1px solid var(--fw-rule);
+      border-radius: 7px;
+      color: var(--fw-ink-4);
+      font-size: 11.5px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #capture-stop-btn:hover { border-color: var(--fw-rust); color: var(--fw-rust); }
+
     /* ── Quick actions ── */
     #quick-actions {
       display: none;
@@ -518,6 +569,24 @@
       overflow: hidden;
     }
     .segment.active .seg-meta { color: var(--fw-rust); }
+    .seg-move-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      background: var(--fw-rust);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 600;
+      border-radius: 3px;
+      letter-spacing: 0.02em;
+      vertical-align: middle;
+      text-transform: uppercase;
+    }
+    .seg-move-cat {
+      color: var(--fw-rust);
+      font-weight: 500;
+      text-transform: capitalize;
+    }
     .seg-icon { color: var(--fw-ink-4); flex-shrink: 0; display: flex; align-items: center; gap: 3px; }
     .seg-icon svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.5; }
     .segment.active .seg-icon { color: var(--fw-rust); }
@@ -1155,7 +1224,7 @@
       <div id="no-video-state">
         <img src="../../icons/icon128.png" class="fw-app-icon" alt="Framewise" />
         <p class="fw-screen-title">No video detected</p>
-        <p class="fw-screen-sub">Navigate to a YouTube video and Framewise will load it automatically.</p>
+        <p class="fw-screen-sub">Navigate to any video page — YouTube, Vimeo, Canvas, or any site — and Framewise will detect it automatically.</p>
         <button class="primary" id="browse-youtube-btn" style="width:100%;max-width:200px;">Open YouTube</button>
       </div>
 
@@ -1164,6 +1233,16 @@
         <svg viewBox="0 0 24 24"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><path d="M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/></svg>
         Analyze this video
       </button>
+
+      <!-- Capture & Analyze (non-YouTube only) -->
+      <div id="capture-row">
+        <button id="capture-btn">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Capture &amp; Analyze
+        </button>
+        <div id="capture-status"></div>
+        <button id="capture-stop-btn">Stop recording</button>
+      </div>
 
       <!-- Accordion sections -->
       <div class="fw-sections">
@@ -1237,7 +1316,7 @@
           </button>
           <div id="tab-captions" class="fw-section-body">
             <div class="fw-section-inner">
-              <div class="caption-gen-block">
+              <div class="caption-gen-block" id="caption-youtube-block">
                 <div class="caption-gen-title">Auto-generate from YouTube</div>
                 <div class="caption-gen-sub">Fetches the transcript with precise timestamps.</div>
                 <button class="primary" id="caption-generate-btn">Generate captions</button>
@@ -1247,6 +1326,13 @@
                 <div class="caption-gen-title">No YouTube captions found</div>
                 <div class="caption-gen-sub">Transcribe audio with ElevenLabs — may take 1–2 min.</div>
                 <button class="primary" id="caption-audio-btn">Transcribe with ElevenLabs</button>
+              </div>
+
+              <div class="caption-gen-block" id="caption-capture-fallback" style="display:none;">
+                <div class="caption-gen-title">Generate from video</div>
+                <div class="caption-gen-sub">Records the playing video and transcribes the audio with ElevenLabs.</div>
+                <button class="primary" id="caption-capture-btn">Capture &amp; Transcribe</button>
+                <div id="caption-capture-status" style="display:none;font-size:11px;color:var(--fw-ink-3);margin-top:6px;line-height:1.5;"></div>
               </div>
 
               <p id="caption-error"></p>

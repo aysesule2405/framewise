@@ -23,8 +23,13 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status === "complete") handleTab(tab);
 });
 
+function isYouTubeVideoUrl(url) {
+  if (!url) return false;
+  return url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+}
+
 async function handleTab(tab) {
-  if (tab?.url?.includes("youtube.com/watch")) {
+  if (isYouTubeVideoUrl(tab?.url)) {
     const videoKey = getYouTubeVideoKey(tab.url);
     const previous = await chrome.storage.session.get("currentVideoKey");
     const isNewVideo = previous.currentVideoKey && previous.currentVideoKey !== videoKey;
@@ -59,7 +64,12 @@ async function handleTab(tab) {
 
 function getYouTubeVideoKey(url) {
   try {
-    return new URL(url).searchParams.get("v") || url;
+    const parsed = new URL(url);
+    const v = parsed.searchParams.get("v");
+    if (v) return v;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts[0] === "shorts" && parts[1]) return parts[1];
+    return url;
   } catch {
     return url;
   }
@@ -111,6 +121,8 @@ chrome.runtime.onMessage.addListener((message, sender) => {
       currentVideoTitle: message.title,
       currentVideoDuration: message.durationSeconds || null,
       currentVideoKey: message.videoKey || getYouTubeVideoKey(message.url),
+      currentVideoSrc: message.currentSrc || null,
+      currentVideoPlatform: message.platform || null,
     });
     checkExistingAnalysis(message.url, message.videoKey || getYouTubeVideoKey(message.url));
   }
@@ -118,5 +130,58 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     chrome.storage.session.get("framewiseExistingVideoId", ({ framewiseExistingVideoId }) => {
       saveProgress(framewiseExistingVideoId, Math.floor(message.positionSeconds || 0));
     });
+  }
+  if (message.type === "REQUEST_TAB_CAPTURE") {
+    handleTabCapture(message).catch((err) => {
+      chrome.runtime.sendMessage({
+        type: "TAB_CAPTURE_ERROR",
+        error: err.message || "Tab capture setup failed",
+      });
+    });
+  }
+  // Close offscreen document when capture finishes or errors
+  if (message.type === "TAB_CAPTURE_DONE" || message.type === "TAB_CAPTURE_ERROR") {
+    chrome.offscreen.closeDocument().catch(() => {});
+  }
+});
+
+async function handleTabCapture({ apiUrl, url, title, source, maxDuration, tabId }) {
+  // Ensure only one offscreen document exists at a time
+  const existing = await chrome.offscreen.hasDocument().catch(() => false);
+  if (existing) await chrome.offscreen.closeDocument().catch(() => {});
+
+  // Get streamId for the target tab
+  const targetTabId = tabId || (await chrome.tabs.query({ active: true, currentWindow: true })
+    .then((tabs) => tabs[0]?.id));
+  if (!targetTabId) throw new Error("No target tab found");
+
+  const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId });
+
+  // Create the offscreen document that will do the actual recording
+  await chrome.offscreen.createDocument({
+    url: "src/offscreen/offscreen.html",
+    reasons: ["USER_MEDIA"],
+    justification: "Record tab video/audio for Framewise analysis",
+  });
+
+  // Forward capture params + streamId to the offscreen document
+  // Small delay to let the offscreen document's listener register
+  await new Promise((r) => setTimeout(r, 200));
+  chrome.runtime.sendMessage({
+    type: "START_TAB_CAPTURE",
+    streamId,
+    apiUrl,
+    url,
+    title,
+    source,
+    maxDuration,
+  });
+}
+
+// Relay STOP_CAPTURE from panel → offscreen (panel sends STOP_CAPTURE via content script,
+// but for TikTok there is no content script recorder — relay as STOP_TAB_CAPTURE)
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "RELAY_STOP_TAB_CAPTURE") {
+    chrome.runtime.sendMessage({ type: "STOP_TAB_CAPTURE" }).catch(() => {});
   }
 });

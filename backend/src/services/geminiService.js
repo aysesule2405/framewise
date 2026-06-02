@@ -1,6 +1,10 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleAIFileManager } = require("@google/generative-ai/server");
+const path = require("path");
+const fs = require("fs");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
 const { logAiRequest } = require("./aiLogger");
 const modelCandidates = [
   ...(process.env.GEMINI_MODEL || "").split(","),
@@ -145,6 +149,45 @@ function buildYoutubePart(videoUrl, clip = null) {
   return part;
 }
 
+// Builds a content part for a file uploaded via the Gemini File API.
+// videoSource: { type: "youtube", url } | { type: "file", fileUri, mimeType }
+function buildVideoPart(videoSource, clip = null) {
+  if (videoSource.type === "youtube") return buildYoutubePart(videoSource.url, clip);
+
+  const part = {
+    fileData: {
+      fileUri: videoSource.fileUri,
+      mimeType: videoSource.mimeType || "video/webm",
+    },
+  };
+  if (clip) {
+    part.videoMetadata = {
+      startOffset: `${Math.max(0, Math.floor(clip.start))}s`,
+      endOffset: `${Math.max(0, Math.floor(clip.end))}s`,
+    };
+  }
+  return part;
+}
+
+// Uploads a local video file to the Gemini File API and returns the hosted fileUri.
+// The file is retained for 48 hours then auto-deleted by Google.
+async function uploadVideoToGemini(localPath, mimeType = "video/webm") {
+  const displayName = path.basename(localPath);
+  const uploadResult = await fileManager.uploadFile(localPath, { mimeType, displayName });
+
+  // Wait for the file to finish processing (state transitions PROCESSING → ACTIVE)
+  let file = uploadResult.file;
+  let waited = 0;
+  while (file.state === "PROCESSING") {
+    if (waited > 300_000) throw new Error("Gemini file processing timed out after 5 minutes");
+    await new Promise((r) => setTimeout(r, 3000));
+    waited += 3000;
+    file = await fileManager.getFile(file.name);
+  }
+  if (file.state === "FAILED") throw new Error("Gemini file processing failed");
+  return file.uri;
+}
+
 async function generateContent(parts) {
   await acquireRateSlot();
   let lastError = null;
@@ -237,16 +280,16 @@ function clampSegmentsToDuration(segments, durationSeconds) {
 }
 
 /**
- * Analyze a YouTube video URL and return segments + transcript.
- * Uses Gemini's native YouTube URL support (Option A - no download needed).
+ * Analyze a video and return segments + transcript.
+ * videoSource: { type: "youtube", url } | { type: "file", fileUri, mimeType }
  */
-async function analyzeTopicChunk(videoUrl, clip) {
+async function analyzeTopicChunk(videoSource, clip) {
   const clipInstruction = clip
     ? `Analyze only the clipped interval ${clip.start}s-${clip.end}s. Return startTime/endTime relative to this clipped interval, starting at 0.`
     : "Analyze the full attached video.";
 
   const prompt = `
-You are analyzing the attached YouTube video. Do not invent content from the title,
+You are analyzing the attached video. Do not invent content from the title,
 URL, or general knowledge. If you cannot access the attached video, return:
 { "title": "Unavailable video", "transcript": "", "segments": [] }
 
@@ -276,14 +319,14 @@ Rules:
 
   const result = await generateContent([
     { text: prompt },
-    buildYoutubePart(videoUrl, clip),
+    buildVideoPart(videoSource, clip),
   ]);
   return parseJsonResponse(safeText(result).trim());
 }
 
-async function analyzeTopicChunkSafe(videoUrl, clip) {
+async function analyzeTopicChunkSafe(videoSource, clip) {
   try {
-    return await analyzeTopicChunk(videoUrl, clip);
+    return await analyzeTopicChunk(videoSource, clip);
   } catch (err) {
     if (!looksTruncatedJsonError(err)) throw err;
 
@@ -302,7 +345,7 @@ Rules:
 
     const result = await generateContent([
       { text: prompt },
-      buildYoutubePart(videoUrl, clip),
+      buildVideoPart(videoSource, clip),
     ]);
     return parseJsonResponse(safeText(result).trim());
   }
@@ -313,12 +356,13 @@ Rules:
  * Uses chunked clipping for long videos so a 40 minute video gets a full timeline.
  */
 const analyzeWithGemini = async (videoUrl, { durationSeconds } = {}) => {
+  const videoSource = { type: "youtube", url: videoUrl };
   const chunks = makeChunks(durationSeconds, TOPIC_CHUNK_SECONDS);
   logAiRequest("gemini.analyze.topics", { chunks: chunks.length, concurrency: CHUNK_CONCURRENCY, durationSeconds });
   const analyses = await mapWithConcurrency(
     chunks,
     CHUNK_CONCURRENCY,
-    (clip) => analyzeTopicChunkSafe(videoUrl, clip)
+    (clip) => analyzeTopicChunkSafe(videoSource, clip)
   );
 
   const segments = clampSegmentsToDuration(analyses.flatMap((analysis, index) => {
@@ -340,13 +384,47 @@ const analyzeWithGemini = async (videoUrl, { durationSeconds } = {}) => {
   };
 };
 
-async function analyzeDanceChunk(videoUrl, clip) {
+/**
+ * Analyze a video uploaded to the Gemini File API and return segments + transcript.
+ * Same chunking/retry logic as analyzeWithGemini — only the input source differs.
+ */
+const analyzeWithGeminiFile = async (fileUri, { durationSeconds, mimeType = "video/webm" } = {}) => {
+  const videoSource = { type: "file", fileUri, mimeType };
+  const chunks = makeChunks(durationSeconds, TOPIC_CHUNK_SECONDS);
+  logAiRequest("gemini.analyze.topics.file", { chunks: chunks.length, concurrency: CHUNK_CONCURRENCY, durationSeconds });
+  const analyses = await mapWithConcurrency(
+    chunks,
+    CHUNK_CONCURRENCY,
+    (clip) => analyzeTopicChunkSafe(videoSource, clip)
+  );
+
+  const segments = clampSegmentsToDuration(analyses.flatMap((analysis, index) => {
+    const clip = chunks[index];
+    return (analysis.segments || []).map((segment) => ({
+      ...segment,
+      ...normalizeSegmentTimes(segment, clip),
+    }));
+  }), durationSeconds);
+
+  return {
+    title: analyses.find((a) => a.title)?.title || "Analyzed Video",
+    transcript: analyses.map((analysis, index) => {
+      const clip = chunks[index];
+      const label = clip ? `[${clip.start}s-${clip.end}s]` : "[full video]";
+      return `${label} ${analysis.transcript || ""}`.trim();
+    }).filter(Boolean).join("\n"),
+    segments,
+  };
+};
+
+// videoSource: { type: "youtube", url } | { type: "file", fileUri, mimeType }
+async function analyzeDanceChunk(videoSource, clip) {
   const clipInstruction = clip
     ? `You are analyzing ONLY the section from ${clip.start}s to ${clip.end}s of the video (a ${clip.end - clip.start}s window). Return startTime and endTime as seconds RELATIVE to this window's start (the window starts at 0 and ends at ${clip.end - clip.start}s).`
     : "Analyze the ENTIRE video from the first second to the last.";
 
   const prompt = `
-You are an expert dance instructor analyzing the attached YouTube video for a student who wants to learn every step.
+You are an expert dance instructor analyzing the attached video for a student who wants to learn every step.
 
 ${clipInstruction}
 
@@ -364,6 +442,8 @@ Return ONLY valid JSON with this exact shape:
       "practiceTips": ["specific beginner tip 1", "specific beginner tip 2"],
       "mirrorTip": "one thing to keep in mind when mirroring the dancer",
       "difficulty": "easy | medium | hard",
+      "moveName": "null OR the exact name of a widely recognized dance move if you can identify one (e.g. 'The Moonwalk', 'The Running Man', 'The Two-Step', 'The Dougie', 'The Worm', 'The Robot', 'Popping', 'Locking', 'Krump', 'The Floss', 'The Cabbage Patch', 'Waacking', 'Tutting', 'Voguing', 'The Harlem Shake', 'The Electric Slide', 'The Stanky Leg', 'The Nae Nae', 'The Dab') — set to null if the move is unique choreography without a standard name",
+      "moveCategory": "one of: footwork | arm_isolation | full_body | upper_body | floor_work | freestyle",
       "startTime": number,
       "endTime": number
     }
@@ -379,22 +459,25 @@ Critical rules — read carefully:
 6. Skip non-dancing portions (introductions, pauses, talking heads) — do not create segments for them.
 7. Give each move a specific descriptive name — not generic labels like "Move 1" or "Dance section".
 8. If no dancing is detected, return: { "title": "", "segments": [] }
+9. In moveName, only set a value if you are highly confident the move matches a specific named style — do not guess; null is better than wrong.
+10. In moveCategory, classify the primary body region engaged: footwork (legs/feet dominant), arm_isolation (arms/hands dominant), full_body (whole body coordinated), upper_body (torso/chest/shoulders), floor_work (ground-based), freestyle (no dominant region).
 `;
 
   const result = await generateContent([
     { text: prompt },
-    buildYoutubePart(videoUrl, clip),
+    buildVideoPart(videoSource, clip),
   ]);
   return parseJsonResponse(safeText(result).trim());
 }
 
 const analyzeDanceWithGemini = async (videoUrl, { durationSeconds } = {}) => {
+  const videoSource = { type: "youtube", url: videoUrl };
   const chunks = makeChunks(durationSeconds, DANCE_CHUNK_SECONDS);
   logAiRequest("gemini.analyze.dance", { chunks: chunks.length, concurrency: CHUNK_CONCURRENCY, durationSeconds });
   const analyses = await mapWithConcurrency(
     chunks,
     CHUNK_CONCURRENCY,
-    (clip) => analyzeDanceChunk(videoUrl, clip)
+    (clip) => analyzeDanceChunk(videoSource, clip)
   );
 
   const segments = clampSegmentsToDuration(analyses.flatMap((analysis, index) => {
@@ -407,6 +490,34 @@ const analyzeDanceWithGemini = async (videoUrl, { durationSeconds } = {}) => {
 
   return {
     title: analyses.find((analysis) => analysis.title)?.title || "Dance Tutorial",
+    segments,
+  };
+};
+
+/**
+ * Dance analysis for a video uploaded via the Gemini File API.
+ * Same logic as analyzeDanceWithGemini — only the input source differs.
+ */
+const analyzeDanceWithGeminiFile = async (fileUri, { durationSeconds, mimeType = "video/webm" } = {}) => {
+  const videoSource = { type: "file", fileUri, mimeType };
+  const chunks = makeChunks(durationSeconds, DANCE_CHUNK_SECONDS);
+  logAiRequest("gemini.analyze.dance.file", { chunks: chunks.length, concurrency: CHUNK_CONCURRENCY, durationSeconds });
+  const analyses = await mapWithConcurrency(
+    chunks,
+    CHUNK_CONCURRENCY,
+    (clip) => analyzeDanceChunk(videoSource, clip)
+  );
+
+  const segments = clampSegmentsToDuration(analyses.flatMap((analysis, index) => {
+    const clip = chunks[index];
+    return (analysis.segments || []).map((segment) => ({
+      ...segment,
+      ...normalizeSegmentTimes(segment, clip),
+    }));
+  }), durationSeconds);
+
+  return {
+    title: analyses.find((a) => a.title)?.title || "Dance Tutorial",
     segments,
   };
 };
@@ -681,4 +792,15 @@ Rules:
   return { quiz: Array.isArray(parsed.quiz) ? parsed.quiz : [] };
 };
 
-module.exports = { analyzeWithGemini, analyzeDanceWithGemini, chatWithGemini, correctCaptionsWithGemini, generateQuizWithGemini, translateCaptionsWithGemini, generateNotesWithGemini };
+module.exports = {
+  analyzeWithGemini,
+  analyzeWithGeminiFile,
+  analyzeDanceWithGemini,
+  analyzeDanceWithGeminiFile,
+  uploadVideoToGemini,
+  chatWithGemini,
+  correctCaptionsWithGemini,
+  generateQuizWithGemini,
+  translateCaptionsWithGemini,
+  generateNotesWithGemini,
+};

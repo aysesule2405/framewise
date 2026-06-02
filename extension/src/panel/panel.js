@@ -58,6 +58,17 @@ function showNoVideoState(show) {
   if (noVideoEl) noVideoEl.style.display = show ? "flex" : "none";
   if (analyzeBtn) analyzeBtn.style.display = show ? "none" : "";
   if (sections) sections.style.display = show ? "none" : "";
+  if (show) document.getElementById("capture-row").style.display = "none";
+}
+
+function getPlatformSource(url) {
+  if (!url) return "generic";
+  if (url.includes("youtube.com/shorts/")) return "youtube-shorts";
+  if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
+  if (url.includes("vimeo.com")) return "vimeo";
+  if (url.includes("tiktok.com")) return "tiktok";
+  if (url.includes("kaltura") || url.includes("instructure.com")) return "canvas";
+  return "generic";
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
@@ -102,8 +113,8 @@ function showNoVideoState(show) {
     // Fallback: query the active tab directly in case background hasn't stored yet
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.url?.includes("youtube.com/watch")) {
-        const vidKey = new URL(tab.url).searchParams.get("v") || null;
+      if (tab?.url?.includes("youtube.com/watch") || tab?.url?.includes("youtube.com/shorts/")) {
+        const vidKey = getVideoKey(tab.url);
         setVideo(tab.url, tab.title, null, vidKey);
         try {
           const cached = await loadCachedAnalysis(tab.url);
@@ -114,7 +125,7 @@ function showNoVideoState(show) {
         }
       } else {
         showNoVideoState(true);
-        document.getElementById("status").textContent = "Open a YouTube video";
+        document.getElementById("status").textContent = "Open a video to get started";
       }
     } catch {
       showNoVideoState(true);
@@ -207,7 +218,7 @@ setInterval(async () => {
   if (!allSegments.length) return;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !tab.url?.includes("youtube.com")) return;
+    if (!tab?.id || !currentVideoUrl) return;
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => { const v = document.querySelector("video"); return v ? v.currentTime : null; },
@@ -357,12 +368,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
     currentVideoDuration = null;
     showNoVideoState(true);
     updateChatChips("general");
-    document.getElementById("status").textContent = "Open a YouTube video";
+    document.getElementById("status").textContent = "Open a video to get started";
     document.getElementById("video-info").textContent = "";
     const thumb = document.getElementById("video-thumb");
     if (thumb) thumb.classList.remove("loaded");
     const modeEl = document.getElementById("video-mode");
     if (modeEl) modeEl.style.display = "none";
+    document.getElementById("capture-row").style.display = "none";
+    resetCaptureUI();
   }
 });
 
@@ -376,6 +389,18 @@ function setVideo(url, title, durationSeconds, videoKey) {
   if (isNewVideo) resetVideoState();
   updateVideoInfo();
   showNoVideoState(false);
+
+  // Show capture button for non-YouTube platforms
+  const captureRow = document.getElementById("capture-row");
+  const src = getPlatformSource(url);
+  const isYouTube = src === "youtube" || src === "youtube-shorts";
+  if (captureRow) captureRow.style.display = isYouTube ? "none" : "block";
+
+  // Toggle caption generation blocks: YouTube transcript vs capture-based transcription
+  const captionYtBlock = document.getElementById("caption-youtube-block");
+  const captionCaptureBlock = document.getElementById("caption-capture-fallback");
+  if (captionYtBlock) captionYtBlock.style.display = isYouTube ? "" : "none";
+  if (captionCaptureBlock) captionCaptureBlock.style.display = isYouTube ? "none" : "flex";
 
   // Immediately apply soft mode from title — overridden once analysis loads
   const softMode = detectModeFromTitle(currentVideoTitle);
@@ -393,6 +418,13 @@ function resetVideoState() {
   captionsInjected = false;
   captionsShowTranslated = false;
   hideQuickActions();
+  const captureRow = document.getElementById("capture-row");
+  if (captureRow) captureRow.style.display = "none";
+  resetCaptureUI();
+  const captureStatusEl = document.getElementById("caption-capture-status");
+  if (captureStatusEl) { captureStatusEl.style.display = "none"; captureStatusEl.textContent = ""; }
+  const captureBtn = document.getElementById("caption-capture-btn");
+  if (captureBtn) { captureBtn.disabled = false; captureBtn.textContent = "Capture & Transcribe"; }
   document.getElementById("segments").innerHTML = `<p class="fw-empty">Analyze this video to generate the topic timeline.</p>`;
   document.getElementById("dance-segments").innerHTML = `<p class="fw-empty">Generate a dance summary or open the full Practice workspace in Framewise.</p>`;
   document.getElementById("chat-area").innerHTML = "";
@@ -411,9 +443,282 @@ function resetVideoState() {
   });
 }
 
+// ── captureStream pipeline ─────────────────────────────────────────────────────
+
+// Shared completion handler — called after any capture path returns a jobId
+function onCaptureJobStarted(jobId) {
+  const statusEl = document.getElementById("capture-status");
+  const status = document.getElementById("status");
+  if (statusEl) { statusEl.style.display = "block"; statusEl.textContent = "Analyzing…"; }
+  if (status) status.textContent = "Analyzing captured video…";
+  waitForAnalyzeJob(jobId, (job) => {
+    if (status) status.textContent = job.message || "Analyzing…";
+  }).then(async (result) => {
+    currentVideoId = result.video._id;
+    renderSegments(result.segments);
+    applyVideoMode(result.video);
+    showQuickActions();
+    await loadChatHistory();
+    resetCaptureUI();
+    if (status) status.textContent = "Capture analysis complete";
+    await chrome.storage.session.set({
+      framewiseExistingVideoId: currentVideoId,
+      framewiseSegments: result.segments.map((s) => ({ startTime: s.startTime, title: s.title })),
+    });
+  }).catch((e) => {
+    resetCaptureUI();
+    if (status) status.textContent = "Analysis failed: " + (e.message || "unknown error");
+  });
+}
+
+// Attempt server-side CDN download before starting captureStream recording.
+// Returns the response JSON { jobId, videoId } on success, or null if the CDN
+// URL is auth-gated / unavailable (caller falls back to captureStream).
+async function tryDirectDownload(srcUrl) {
+  try {
+    const res = await fetch(`${FW_API}/videos/upload-capture`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        srcUrl,
+        url: currentVideoUrl,
+        title: currentVideoTitle || currentVideoUrl,
+        source: getPlatformSource(currentVideoUrl),
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function resetCaptureUI() {
+  const btn = document.getElementById("capture-btn");
+  const statusEl = document.getElementById("capture-status");
+  const stopBtn = document.getElementById("capture-stop-btn");
+  if (btn) { btn.disabled = false; btn.textContent = ""; btn.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg> Capture &amp; Analyze'; }
+  if (statusEl) { statusEl.style.display = "none"; statusEl.textContent = ""; }
+  if (stopBtn) stopBtn.style.display = "none";
+}
+
+async function captureAndAnalyze() {
+  if (!currentVideoUrl) {
+    document.getElementById("status").textContent = "No video detected — open a video first.";
+    return;
+  }
+  if (!token) { showNotLoggedIn(); return; }
+
+  const btn = document.getElementById("capture-btn");
+  const status = document.getElementById("status");
+
+  btn.disabled = true;
+  btn.textContent = "Starting capture…";
+  status.textContent = "Starting recording…";
+
+  const src = getPlatformSource(currentVideoUrl);
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error("No active tab found.");
+
+    if (src === "tiktok") {
+      // TikTok uses DRM — route through tabCapture/offscreen
+      await requestTabCapture(tab.id);
+    } else {
+      // For Vimeo, Canvas, Loom, generic: try a server-side CDN fetch first.
+      // If the CDN URL is public the backend downloads it in ~seconds — no recording needed.
+      const { currentVideoSrc } = await chrome.storage.session.get("currentVideoSrc");
+      if (currentVideoSrc && currentVideoSrc.startsWith("http")) {
+        status.textContent = "Trying fast download…";
+        const direct = await tryDirectDownload(currentVideoSrc);
+        if (direct?.jobId) {
+          onCaptureJobStarted(direct.jobId);
+          return; // done — no captureStream recording needed
+        }
+        status.textContent = "Starting capture…";
+      }
+      await chrome.tabs.sendMessage(tab.id, {
+        type: "START_CAPTURE",
+        apiUrl: FW_API,
+        url: currentVideoUrl,
+        title: currentVideoTitle || currentVideoUrl,
+        source: src,
+        maxDuration: 300,
+      });
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Capture & Analyze";
+    status.textContent = "Capture error: " + (e.message || "Could not start recording.");
+  }
+}
+
+async function requestTabCapture(tabId) {
+  chrome.runtime.sendMessage({
+    type: "REQUEST_TAB_CAPTURE",
+    tabId,
+    apiUrl: FW_API,
+    url: currentVideoUrl,
+    title: currentVideoTitle || currentVideoUrl,
+    source: getPlatformSource(currentVideoUrl),
+    maxDuration: 300,
+  });
+}
+
+// Listen for capture progress from content script and offscreen document.
+// TAB_CAPTURE_* messages (from offscreen via background) are normalized to CAPTURE_* here.
+chrome.runtime.onMessage.addListener((message) => {
+  // Normalize TAB_CAPTURE_* → CAPTURE_* so the same UI handlers work for both paths
+  let type = message?.type;
+  if (!type) return;
+  if (type === "TAB_CAPTURE_STARTED")   type = "CAPTURE_STARTED";
+  if (type === "TAB_CAPTURE_UPLOADING") type = "CAPTURE_UPLOADING";
+  if (type === "TAB_CAPTURE_DONE")      type = "CAPTURE_DONE";
+  if (type === "TAB_CAPTURE_ERROR")     type = "CAPTURE_ERROR";
+  if (!type.startsWith("CAPTURE_")) return;
+
+  const btn = document.getElementById("capture-btn");
+  const statusEl = document.getElementById("capture-status");
+  const stopBtn = document.getElementById("capture-stop-btn");
+  const status = document.getElementById("status");
+
+  if (type === "CAPTURE_STARTED") {
+    if (statusEl) { statusEl.style.display = "block"; statusEl.textContent = "Recording… play the video to capture it. Click Stop when done."; }
+    if (stopBtn) stopBtn.style.display = "block";
+    if (status) status.textContent = "Recording…";
+  }
+
+  if (type === "CAPTURE_UPLOADING") {
+    if (statusEl) statusEl.textContent = "Uploading to Gemini…";
+    if (stopBtn) stopBtn.style.display = "none";
+    if (status) status.textContent = "Uploading captured video…";
+  }
+
+  if (type === "CAPTURE_DONE") {
+    onCaptureJobStarted(message.jobId);
+  }
+
+  if (type === "CAPTURE_ERROR") {
+    resetCaptureUI();
+    const errText = message.error || "unknown error";
+    const isDrm = /drm|widevine|protected|notSupported|NotSupportedError/i.test(errText);
+    if (status) status.textContent = isDrm
+      ? "DRM-protected video — tab capture is not supported on this platform."
+      : "Capture error: " + errText;
+    if (statusEl) { statusEl.style.display = "block"; statusEl.textContent = isDrm ? "DRM content cannot be captured." : errText; }
+  }
+});
+
+document.getElementById("capture-btn")?.addEventListener("click", captureAndAnalyze);
+document.getElementById("capture-stop-btn")?.addEventListener("click", async () => {
+  const src = getPlatformSource(currentVideoUrl);
+  try {
+    if (src === "tiktok") {
+      // TikTok uses offscreen tabCapture — relay stop signal through background
+      chrome.runtime.sendMessage({ type: "RELAY_STOP_TAB_CAPTURE" });
+    } else {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) await chrome.tabs.sendMessage(tab.id, { type: "STOP_CAPTURE" });
+    }
+  } catch {}
+  document.getElementById("capture-stop-btn").style.display = "none";
+  const statusEl = document.getElementById("capture-status");
+  if (statusEl) statusEl.textContent = "Stopping…";
+});
+
+// ── Caption capture pipeline ───────────────────────────────────────────────────
+async function startCaptionCapture() {
+  if (!currentVideoId) {
+    document.getElementById("status").textContent = "Analyze this video before generating captions.";
+    return;
+  }
+  if (!token) { showNotLoggedIn(); return; }
+
+  const btn = document.getElementById("caption-capture-btn");
+  const captureStatusEl = document.getElementById("caption-capture-status");
+  const stopBtn = document.getElementById("capture-stop-btn");
+  const status = document.getElementById("status");
+
+  btn.disabled = true;
+  btn.textContent = "Recording…";
+  if (captureStatusEl) { captureStatusEl.style.display = "block"; captureStatusEl.textContent = "Recording — play the video, then click Stop when you've captured enough."; }
+  if (stopBtn) stopBtn.style.display = "block";
+  status.textContent = "Recording for captions…";
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error("No active tab found.");
+    await chrome.tabs.sendMessage(tab.id, {
+      type: "START_CAPTION_CAPTURE",
+      apiUrl: FW_API,
+      videoId: currentVideoId,
+      maxDuration: 180,
+    });
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Capture & Transcribe";
+    if (captureStatusEl) captureStatusEl.style.display = "none";
+    if (stopBtn) stopBtn.style.display = "none";
+    status.textContent = "Capture error: " + (e.message || "Could not start recording.");
+  }
+}
+
+document.getElementById("caption-capture-btn")?.addEventListener("click", startCaptionCapture);
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message?.type?.startsWith("CAPTION_CAPTURE_")) return;
+  const btn = document.getElementById("caption-capture-btn");
+  const captureStatusEl = document.getElementById("caption-capture-status");
+  const stopBtn = document.getElementById("capture-stop-btn");
+  const status = document.getElementById("status");
+
+  if (message.type === "CAPTION_CAPTURE_STARTED") {
+    if (captureStatusEl) captureStatusEl.textContent = "Recording… play the video. Click Stop when done.";
+    if (stopBtn) stopBtn.style.display = "block";
+    if (status) status.textContent = "Recording for captions…";
+  }
+
+  if (message.type === "CAPTION_CAPTURE_UPLOADING") {
+    if (captureStatusEl) captureStatusEl.textContent = "Transcribing with ElevenLabs…";
+    if (stopBtn) stopBtn.style.display = "none";
+    if (status) status.textContent = "Transcribing captured audio…";
+  }
+
+  if (message.type === "CAPTION_CAPTURE_DONE") {
+    if (captureStatusEl) { captureStatusEl.style.display = "none"; captureStatusEl.textContent = ""; }
+    if (btn) { btn.disabled = false; btn.textContent = "Capture & Transcribe"; }
+    if (stopBtn) stopBtn.style.display = "none";
+    if (status) status.textContent = "Loading captions…";
+    apiFetch(`/videos/${currentVideoId}/captions`, "GET")
+      .then((data) => {
+        if (data.captions?.length) {
+          renderCaptions(data.captions);
+          if (captionAutoInject) injectCurrentCaptions(data.captions);
+          if (status) status.textContent = `${data.captions.length} captions ready`;
+        } else {
+          if (status) status.textContent = "Captions saved";
+        }
+      })
+      .catch(() => { if (status) status.textContent = "Captions ready"; });
+  }
+
+  if (message.type === "CAPTION_CAPTURE_ERROR") {
+    if (captureStatusEl) { captureStatusEl.style.display = "block"; captureStatusEl.textContent = message.error || "Capture failed."; }
+    if (btn) { btn.disabled = false; btn.textContent = "Capture & Transcribe"; }
+    if (stopBtn) stopBtn.style.display = "none";
+    if (status) status.textContent = "Caption capture error: " + (message.error || "unknown");
+  }
+});
+
 function getVideoKey(url) {
   try {
-    return new URL(url).searchParams.get("v") || url;
+    const parsed = new URL(url);
+    const v = parsed.searchParams.get("v");
+    if (v) return v;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts[0] === "shorts" && parts[1]) return parts[1];
+    return url;
   } catch {
     return url;
   }
@@ -423,9 +728,15 @@ function updateVideoInfo() {
   const durationText = currentVideoDuration ? ` · ${formatDuration(currentVideoDuration)}` : "";
   document.getElementById("video-info").textContent = `${currentVideoTitle || currentVideoUrl}${durationText}`;
   const thumb = document.getElementById("video-thumb");
-  if (thumb && currentVideoKey) {
-    thumb.src = `https://img.youtube.com/vi/${currentVideoKey}/mqdefault.jpg`;
-    thumb.classList.add("loaded");
+  if (thumb) {
+    const isYouTube = currentVideoUrl && (currentVideoUrl.includes("youtube.com") || currentVideoUrl.includes("youtu.be"));
+    if (isYouTube && currentVideoKey) {
+      thumb.src = `https://img.youtube.com/vi/${currentVideoKey}/mqdefault.jpg`;
+      thumb.classList.add("loaded");
+    } else {
+      thumb.removeAttribute("src");
+      thumb.classList.remove("loaded");
+    }
   }
 }
 
@@ -550,7 +861,7 @@ async function getTabVideoDuration() {
 
 document.getElementById("analyze-btn").addEventListener("click", async () => {
   if (!currentVideoUrl) {
-    document.getElementById("status").textContent = "No video detected — open a YouTube video first.";
+    document.getElementById("status").textContent = "No video detected — open a video first.";
     return;
   }
   if (!token) {
@@ -600,7 +911,7 @@ document.getElementById("analyze-btn").addEventListener("click", async () => {
   try {
     const data = await apiFetch("/videos/analyze", "POST", {
       url: currentVideoUrl,
-      source: "youtube",
+      source: getPlatformSource(currentVideoUrl),
       durationSeconds: currentVideoDuration,
     });
 
@@ -809,8 +1120,8 @@ function renderDanceSegments(segments) {
     el.innerHTML = `
       <div class="seg-num">♪</div>
       <div class="seg-body">
-        <div class="seg-title">${escapeHtml(seg.title || "Dance section")}</div>
-        <div class="seg-meta">${formatTime(seg.startTime)}-${formatTime(seg.endTime)}</div>
+        <div class="seg-title">${escapeHtml(seg.title || "Dance section")}${seg.moveName ? `<span class="seg-move-badge">${escapeHtml(seg.moveName)}</span>` : ""}</div>
+        <div class="seg-meta">${formatTime(seg.startTime)}-${formatTime(seg.endTime)}${seg.moveCategory ? ` · <span class="seg-move-cat">${seg.moveCategory.replace("_", " ")}</span>` : ""}</div>
         ${seg.summary ? `<div class="seg-summary">${escapeHtml(seg.summary)}</div>` : ""}
         ${seg.bodyPosition ? `<div class="seg-summary"><strong>Body:</strong> ${escapeHtml(seg.bodyPosition)}</div>` : ""}
         ${seg.movementCue ? `<div class="seg-summary"><strong>Cue:</strong> ${escapeHtml(seg.movementCue)}</div>` : ""}
@@ -1693,8 +2004,8 @@ document.addEventListener("visibilitychange", async () => {
   if (document.visibilityState !== "visible" || currentVideoUrl) return;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.url?.includes("youtube.com/watch")) {
-      const vidKey = new URL(tab.url).searchParams.get("v") || null;
+    if (tab?.url?.includes("youtube.com/watch") || tab?.url?.includes("youtube.com/shorts/")) {
+      const vidKey = getVideoKey(tab.url);
       setVideo(tab.url, tab.title, null, vidKey);
       try { await loadCachedAnalysis(tab.url); } catch {}
     }
