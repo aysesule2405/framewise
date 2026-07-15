@@ -1,0 +1,16 @@
+# Python 3.12 required. TF 2.16 + mediapipe 0.10.14 are the last pinned-compatible set.
+# tensorflowjs is exported via CLI (see export_tfjs.py) — not imported as a Python module.
+#
+# Setup:
+#   python3.12 -m venv .venv
+#   source .venv/bin/activate        (or .venv/bin/activate.fish on fish)
+#   pip install -r requirements.txt
+
+tensorflow==2.16.2
+mediapipe==0.10.14
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+tqdm>=4.65.0
+matplotlib>=3.7.0

@@ -1,0 +1,13 @@
+{
+  "labels": [
+    { "slug": "idle",            "displayName": "Idle / Neutral",  "category": "neutral",        "index": 0 },
+    { "slug": "moonwalk",        "displayName": "Moonwalk",        "category": "footwork",       "index": 1 },
+    { "slug": "body_roll",       "displayName": "Body Roll",       "category": "body_isolation", "index": 2 },
+    { "slug": "body_wave",       "displayName": "Body Wave",       "category": "body_isolation", "index": 3 },
+    { "slug": "chest_pop",       "displayName": "Chest Pop",       "category": "upper_body",     "index": 4 },
+    { "slug": "hip_sway",        "displayName": "Hip Sway",        "category": "lower_body",     "index": 5 },
+    { "slug": "arm_wave",        "displayName": "Arm Wave",        "category": "arm_isolation",  "index": 6 },
+    { "slug": "shoulder_bounce", "displayName": "Shoulder Bounce", "category": "upper_body",     "index": 7 },
+    { "slug": "side_step",       "displayName": "Side Step",       "category": "footwork",       "index": 8 }
+  ]
+}

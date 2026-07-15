@@ -1761,11 +1761,22 @@ const EXT_POSE = {
   reviews: [],
 };
 
+// BlazePose 33-keypoint adjacency list
 const POSE_CONNECTIONS = [
-  [5,6],[5,7],[7,9],[6,8],[8,10],  // arms + shoulders
-  [5,11],[6,12],[11,12],            // torso
-  [11,13],[13,15],[12,14],[14,16], // legs
-  [0,1],[0,2],[1,3],[2,4],          // face
+  // Face
+  [0,1],[1,2],[2,3],[3,7],[0,4],[4,5],[5,6],[6,8],
+  // Shoulders + mouth
+  [9,10],[11,12],
+  // Left arm
+  [11,13],[13,15],[15,17],[15,19],[15,21],[17,19],
+  // Right arm
+  [12,14],[14,16],[16,18],[16,20],[16,22],[18,20],
+  // Torso
+  [11,23],[12,24],[23,24],
+  // Left leg
+  [23,25],[25,27],[27,29],[29,31],[27,31],
+  // Right leg
+  [24,26],[26,28],[28,30],[30,32],[28,32],
 ];
 
 function extPoseDrawSkeleton(ctx, keypoints, cw, ch, srcW, srcH) {
@@ -1813,12 +1824,20 @@ async function extPoseInit() {
     await tf.ready();
 
     EXT_POSE.detector = await poseDetection.createDetector(
-      poseDetection.SupportedModels.MoveNet,
-      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+      poseDetection.SupportedModels.BlazePose,
+      {
+        runtime: "tfjs",
+        modelType: "heavy",
+        enableSmoothing: true,
+        enableSegmentation: false,
+      }
     );
     EXT_POSE.ready = true;
     btn.textContent = "Start webcam";
     btn.disabled = false;
+
+    // Load move classifier (no-op if model not yet bundled)
+    if (window.MoveClassifier) window.MoveClassifier.init();
   } catch (e) {
     console.warn("Ext pose init failed:", e);
     btn.textContent = "Unavailable";
@@ -1876,6 +1895,8 @@ function extPoseStop() {
   if (btn) { btn.textContent = "Start webcam"; btn.classList.remove("active"); }
 
   extPoseUpdateKpPill(0, false);
+  extPoseUpdateMoveLabel(null);
+  if (window.MoveClassifier) window.MoveClassifier.reset();
 }
 
 let extPoseLastFrameTime = 0;
@@ -1911,11 +1932,28 @@ async function extPoseLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (poses?.[0]?.keypoints) {
-      const kp = poses[0].keypoints;
+      const pose = poses[0];
+      const kp   = pose.keypoints;
       const count = kp.filter(p => (p.score || 0) > 0.3).length;
       EXT_POSE.lastKp = count;
       extPoseUpdateKpPill(count, true);
       extPoseDrawSkeleton(ctx, kp, canvas.width, canvas.height, video.videoWidth, video.videoHeight);
+
+      // Feature extraction + move classification
+      if (window.PoseFeatures && window.MoveClassifier) {
+        const src = pose.keypoints3D || kp;
+        const feat = window.PoseFeatures.extract(src);
+        if (feat) {
+          window.MoveClassifier.feed(feat);
+          // Classify every 6 frames (~10fps / 6 ≈ 1.7s cadence)
+          EXT_POSE.classifyTick = ((EXT_POSE.classifyTick || 0) + 1) % 6;
+          if (EXT_POSE.classifyTick === 0) {
+            window.MoveClassifier.classify().then((result) => {
+              extPoseUpdateMoveLabel(result);
+            });
+          }
+        }
+      }
     } else {
       extPoseUpdateKpPill(0, true);
     }
@@ -1928,8 +1966,23 @@ function extPoseUpdateKpPill(count, active) {
   const dot = document.getElementById("ext-pose-kp-dot");
   const label = document.getElementById("ext-pose-kp-label");
   if (!dot || !label) return;
-  dot.className = "ext-pose-kp-dot" + (active && count > 4 ? " active" : "");
-  label.textContent = active ? `${count}/17 joints` : "—";
+  dot.className = "ext-pose-kp-dot" + (active && count > 8 ? " active" : "");
+  label.textContent = active ? `${count}/33 joints` : "—";
+}
+
+function extPoseUpdateMoveLabel(result) {
+  const el = document.getElementById("ext-move-label");
+  if (!el) return;
+  if (!result) {
+    el.style.display = "none";
+    return;
+  }
+  el.style.display = "flex";
+  el.querySelector(".ext-move-name").textContent = result.moveName;
+  const confEl = el.querySelector(".ext-move-conf");
+  if (confEl) confEl.textContent = result.confidence ? `${result.confidence}%` : "";
+  const catEl = el.querySelector(".ext-move-cat");
+  if (catEl) catEl.textContent = result.moveCategory || "";
 }
 
 function extPoseSnapSchedule(videoTimeSec) {
@@ -1946,8 +1999,8 @@ function extPoseSnapSchedule(videoTimeSec) {
 }
 
 function extPoseAddReview(videoTimeSec, jointCount) {
-  const quality = jointCount >= 14 ? "great" : jointCount >= 9 ? "good" : jointCount >= 5 ? "ok" : "low";
-  const fill = Math.round((jointCount / 17) * 100);
+  const quality = jointCount >= 28 ? "great" : jointCount >= 20 ? "good" : jointCount >= 12 ? "ok" : "low";
+  const fill = Math.round((jointCount / 33) * 100);
   const colors = { great: "#B5CC92", good: "#F5C36C", ok: "#E0A882", low: "#C56A43" };
 
   EXT_POSE.reviews.unshift({ ts: videoTimeSec, joints: jointCount, quality, fill, color: colors[quality] });
@@ -1964,7 +2017,7 @@ function extPoseAddReview(videoTimeSec, jointCount) {
       <div class="ext-review-bar">
         <div class="ext-review-fill" style="width:${r.fill}%;background:${r.color}"></div>
       </div>
-      <span class="ext-review-score">${r.joints}/17</span>
+      <span class="ext-review-score">${r.joints}/33</span>
     </div>
   `).join("");
 }

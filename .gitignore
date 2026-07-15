@@ -21,3 +21,9 @@ node_modules/
 .archive/
 extension/vendor/mediapipe/
 *.mov
+
+# Python virtual environments
+.venv/
+training/.venv/
+__pycache__/
+*.pyc

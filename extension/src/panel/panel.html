@@ -673,6 +673,33 @@
     .ext-pose-btn:hover { background: var(--fw-surface-2); color: var(--fw-ink); }
     .ext-pose-btn.active { background: var(--fw-rust); color: #fff; border-color: transparent; }
     .ext-pose-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .ext-move-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      background: var(--fw-surface-2);
+      border-top: 1px solid var(--fw-rule);
+      animation: fadeIn .2s ease;
+    }
+    .ext-move-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fw-ink);
+    }
+    .ext-move-conf {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--fw-rust);
+      font-weight: 600;
+    }
+    .ext-move-cat {
+      font-size: 10px;
+      color: var(--fw-ink-4);
+      text-transform: capitalize;
+      margin-left: auto;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .ext-pose-cam-wrap {
       position: relative;
       width: 100%;
@@ -1395,6 +1422,12 @@
                 </span>
                 <button class="ext-pose-btn" id="ext-pose-btn" disabled>Loading…</button>
               </div>
+              <!-- Live move classification label (hidden until model is loaded + confident) -->
+              <div id="ext-move-label" class="ext-move-label" style="display:none;">
+                <span class="ext-move-name"></span>
+                <span class="ext-move-conf"></span>
+                <span class="ext-move-cat"></span>
+              </div>
               <div class="ext-pose-cam-wrap" id="ext-pose-cam-wrap">
                 <video id="ext-pose-video" class="ext-pose-video" playsinline muted></video>
                 <canvas id="ext-pose-canvas" class="ext-pose-canvas"></canvas>
@@ -1432,7 +1465,10 @@
   <script src="../../lib/tf-core.min.js"></script>
   <script src="../../lib/tf-backend-wasm.min.js"></script>
   <script src="../../lib/tf-converter.min.js"></script>
+  <script src="../../lib/tf.min.js"></script>
   <script src="../../lib/pose-detection.min.js"></script>
+  <script src="../lib/poseFeatures.js"></script>
+  <script src="../lib/moveClassifier.js"></script>
   <script src="../config.js"></script>
   <script src="panel.js"></script>
 </body>

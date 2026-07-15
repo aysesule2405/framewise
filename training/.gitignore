@@ -1,0 +1,6 @@
+data/raw_videos/
+data/poses/
+data/dataset.npz
+data/model_saved/
+__pycache__/
+*.pyc
